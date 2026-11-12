@@ -234,6 +234,9 @@ jobs:
         env:
           XCODES_USERNAME: ${{ secrets.XCODES_USERNAME }}
           XCODES_PASSWORD: ${{ secrets.XCODES_PASSWORD }}
+          # The code is taken from whoever started the run: an organization's
+          # private membership is invisible to the run's token.
+          ACTOR: ${{ github.actor }}
         run: |
           test -n "$XCODES_USERNAME" && test -n "$XCODES_PASSWORD" ||
             { echo "set the XCODES_USERNAME and XCODES_PASSWORD repository secrets"; exit 1; }
@@ -250,7 +253,7 @@ jobs:
             end=$((SECONDS + 900))
             while [ $SECONDS -lt $end ]; do
               reply=$(gh api "repos/$GITHUB_REPOSITORY/issues/$issue/comments?since=$since" \
-                --jq '[.[] | select(.author_association == "OWNER" or .author_association == "MEMBER" or .author_association == "COLLABORATOR")] | last | "\(.id) \(.body)"' 2>/dev/null || true)
+                --jq "[.[] | select(.user.login == \"$ACTOR\")] | last | \"\\(.id) \\(.body)\"" 2>/dev/null || true)
               code=$(printf '%s' "${reply#* }" | tr -dc 0-9 | cut -c1-6)
               if [ ${#code} -eq 6 ]; then
                 gh api -X DELETE "repos/$GITHUB_REPOSITORY/issues/comments/${reply%% *}" || true
