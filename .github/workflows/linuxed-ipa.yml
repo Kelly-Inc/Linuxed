@@ -25,6 +25,14 @@ concurrency:
 permissions:
   contents: read
 
+# The R2 bucket is the cache of the kernel bundle, the guest images and Xcode,
+# and receives the guest images and the .ipa (.github/scripts/r2.sh).
+env:
+  R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+  R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+  R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+  R2_BUCKET: ${{ secrets.R2_BUCKET }}
+
 jobs:
   kernel:
     runs-on: macos-26
@@ -35,12 +43,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Restore kernel bundles
+      - name: Restore kernel bundles from R2
         id: bundles
-        uses: actions/cache@v4
-        with:
-          path: .build/kernel/artifacts
-          key: kernel-${{ hashFiles('kernel/common/**', 'kernel/mainline-6.18/**') }}
+        env:
+          KEY: cache/kernel/${{ hashFiles('kernel/common/**', 'kernel/mainline-6.18/**') }}.tar.zst
+        run: |
+          if .github/scripts/r2.sh has "$KEY"; then
+            .github/scripts/r2.sh get "$KEY" "$RUNNER_TEMP/kernel.tar.zst"
+            mkdir -p .build/kernel/artifacts
+            zstd -dc "$RUNNER_TEMP/kernel.tar.zst" | tar -xf - -C .build/kernel/artifacts
+            echo cache-hit=true >> "$GITHUB_OUTPUT"
+          fi
 
       - uses: actions/setup-python@v5
         if: steps.bundles.outputs.cache-hit != 'true'
@@ -108,6 +121,14 @@ jobs:
           done
           ccache -s
 
+      - name: Save kernel bundles to R2
+        if: steps.bundles.outputs.cache-hit != 'true'
+        env:
+          KEY: cache/kernel/${{ hashFiles('kernel/common/**', 'kernel/mainline-6.18/**') }}.tar.zst
+        run: |
+          tar -cf - -C .build/kernel/artifacts . | zstd -T0 -q -o "$RUNNER_TEMP/kernel.tar.zst"
+          .github/scripts/r2.sh put "$KEY" "$RUNNER_TEMP/kernel.tar.zst"
+
       - uses: actions/upload-artifact@v4
         with:
           name: kernel-bundles
@@ -151,25 +172,22 @@ jobs:
 
       # shortcut: hosted images carry no Xcode 27 yet; drop these steps once one does.
       # Unpacking the .xip takes most of the install, so the unpacked Xcode is
-      # cached as a zstd archive. The .xip stays cached beneath it so a lost
-      # archive is rebuilt without asking the Apple ID for a code.
-      - name: Restore installed Xcode
-        id: xcodeapp
-        uses: actions/cache/restore@v4
-        with:
-          path: ${{ runner.temp }}/xcode-app
-          key: xcode-app-${{ env.XCODE_VERSION }}
-
-      - name: Restore Xcode download
+      # kept in R2 as a zstd archive, with the .xip beside it so a lost archive
+      # is rebuilt without asking the Apple ID for a code.
+      - name: Restore Xcode from R2
         id: xcode
-        if: steps.xcodeapp.outputs.cache-hit != 'true'
-        uses: actions/cache/restore@v4
-        with:
-          path: ${{ runner.temp }}/xcode-xip
-          key: xcode-xip-${{ env.XCODE_VERSION }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/xcode-app" "$RUNNER_TEMP/xcode-xip"
+          if .github/scripts/r2.sh has "cache/xcode/Xcode-$XCODE_VERSION.tar.zst"; then
+            .github/scripts/r2.sh get "cache/xcode/Xcode-$XCODE_VERSION.tar.zst" "$RUNNER_TEMP/xcode-app/Xcode.tar.zst"
+            echo app-hit=true >> "$GITHUB_OUTPUT"
+          elif .github/scripts/r2.sh has "cache/xcode/Xcode-$XCODE_VERSION.xip"; then
+            .github/scripts/r2.sh get "cache/xcode/Xcode-$XCODE_VERSION.xip" "$RUNNER_TEMP/xcode-xip/Xcode-$XCODE_VERSION.xip"
+            echo xip-hit=true >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Download Xcode ${{ env.XCODE_VERSION }}
-        if: steps.xcodeapp.outputs.cache-hit != 'true' && steps.xcode.outputs.cache-hit != 'true'
+        if: steps.xcode.outputs.app-hit != 'true' && steps.xcode.outputs.xip-hit != 'true'
         env:
           XCODES_USERNAME: ${{ secrets.XCODES_USERNAME }}
           XCODES_PASSWORD: ${{ secrets.XCODES_PASSWORD }}
@@ -209,12 +227,11 @@ jobs:
           [ "$status" -eq 0 ] || exit "$status"
           ls -l "$RUNNER_TEMP/xcode-xip"
 
-      - name: Save Xcode download
-        if: steps.xcodeapp.outputs.cache-hit != 'true' && steps.xcode.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
-        with:
-          path: ${{ runner.temp }}/xcode-xip
-          key: xcode-xip-${{ env.XCODE_VERSION }}
+      - name: Save Xcode download to R2
+        if: steps.xcode.outputs.app-hit != 'true' && steps.xcode.outputs.xip-hit != 'true'
+        run: |
+          xip=$(ls "$RUNNER_TEMP"/xcode-xip/*.xip)
+          .github/scripts/r2.sh put "cache/xcode/Xcode-$XCODE_VERSION.xip" "$xip"
 
       - name: Install Xcode ${{ env.XCODE_VERSION }}
         run: |
@@ -240,12 +257,10 @@ jobs:
           xcodebuild -downloadPlatform iOS
           xcodebuild -downloadComponent MetalToolchain
 
-      - name: Save installed Xcode
-        if: steps.xcodeapp.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
-        with:
-          path: ${{ runner.temp }}/xcode-app
-          key: xcode-app-${{ env.XCODE_VERSION }}
+      - name: Save installed Xcode to R2
+        if: steps.xcode.outputs.app-hit != 'true'
+        run: |
+          .github/scripts/r2.sh put "cache/xcode/Xcode-$XCODE_VERSION.tar.zst" "$RUNNER_TEMP/xcode-app/Xcode.tar.zst"
 
       - uses: actions/setup-python@v5
         with:
@@ -262,10 +277,14 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-      - uses: actions/download-artifact@v4
-        with:
-          name: kernel-bundles
-          path: .build/kernel/artifacts
+      - name: Fetch kernel bundles from R2
+        env:
+          KEY: cache/kernel/${{ hashFiles('kernel/common/**', 'kernel/mainline-6.18/**') }}.tar.zst
+        run: |
+          .github/scripts/r2.sh get "$KEY" "$RUNNER_TEMP/kernel.tar.zst"
+          mkdir -p .build/kernel/artifacts
+          zstd -dc "$RUNNER_TEMP/kernel.tar.zst" | tar -xf - -C .build/kernel/artifacts
+          rm -f "$RUNNER_TEMP/kernel.tar.zst"
 
       # The release string carries the replay commit's hash, which depends on
       # who replayed the series and when, so the CI kernel takes its own in
@@ -346,19 +365,10 @@ jobs:
           (cd .build/ipa && zip -qry Linuxed-unsigned.ipa Payload)
 
       # The .ipa itself, under its commit and as the latest one.
-      - name: Upload the IPA to the R2 bucket
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: auto
-          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
-          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+      - name: Upload the IPA to R2
         run: |
-          endpoint="https://$R2_ACCOUNT_ID.r2.cloudflarestorage.com"
-          aws s3 cp .build/ipa/Linuxed-unsigned.ipa "s3://$R2_BUCKET/ipa/Linuxed-$GITHUB_SHA.ipa" \
-            --endpoint-url "$endpoint" --content-type application/octet-stream
-          aws s3 cp .build/ipa/Linuxed-unsigned.ipa "s3://$R2_BUCKET/ipa/Linuxed-latest.ipa" \
-            --endpoint-url "$endpoint" --content-type application/octet-stream
+          .github/scripts/r2.sh put "ipa/Linuxed-$GITHUB_SHA.ipa" .build/ipa/Linuxed-unsigned.ipa
+          .github/scripts/r2.sh put ipa/Linuxed-latest.ipa .build/ipa/Linuxed-unsigned.ipa
 
       - uses: actions/upload-artifact@v4
         with:

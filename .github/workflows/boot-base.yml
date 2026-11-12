@@ -27,7 +27,7 @@ on:
         type: string
         required: true
       r2:
-        description: Also upload the images to the R2 bucket (R2_* secrets)
+        description: Keep the images in the R2 bucket, as a cache and under images/ (R2_* secrets)
         type: boolean
         default: false
 
@@ -42,16 +42,26 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       PRODUCTS: ${{ inputs.products }}
       RELEASE: ${{ inputs.release }}
+      R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      R2_BUCKET: ${{ secrets.R2_BUCKET }}
+      # A product rebuilds only when its producer changes.
+      CACHE_KEY: cache/images/${{ inputs.products }}-${{ hashFiles('tools/rootfs/starter/**', 'tools/rootfs/desktop/**', 'tools/video/**') }}.tar
     steps:
       - uses: actions/checkout@v4
 
-      # A product rebuilds only when its producer changes.
-      - name: Restore built images
+      - name: Restore built images from R2
         id: images
-        uses: actions/cache@v4
-        with:
-          path: ${{ runner.temp }}/release
-          key: guest-images-${{ inputs.products }}-${{ hashFiles('tools/rootfs/starter/**', 'tools/rootfs/desktop/**', 'tools/video/**') }}
+        if: inputs.r2
+        run: |
+          if .github/scripts/r2.sh has "$CACHE_KEY"; then
+            .github/scripts/r2.sh get "$CACHE_KEY" "$RUNNER_TEMP/images.tar"
+            mkdir -p "$RUNNER_TEMP/release"
+            tar -xf "$RUNNER_TEMP/images.tar" -C "$RUNNER_TEMP/release"
+            rm -f "$RUNNER_TEMP/images.tar"
+            echo cache-hit=true >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Install producer tools
         if: steps.images.outputs.cache-hit != 'true'
@@ -70,6 +80,7 @@ jobs:
           (cd "$RUNNER_TEMP/release" && sha256sum *)
 
       - name: Attach to the release
+        if: steps.images.outputs.cache-hit != 'true'
         run: |
           gh release view "$RELEASE" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1 ||
             gh release create "$RELEASE" -R "$GITHUB_REPOSITORY" --title "$RELEASE" --notes "Starter images built by the boot-base workflow."
@@ -78,20 +89,18 @@ jobs:
           test -n "$files"
           gh release upload "$RELEASE" -R "$GITHUB_REPOSITORY" $files --clobber
 
-      - name: Upload to the R2 bucket
+      - name: Upload to R2
         if: inputs.r2
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: auto
-          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
-          R2_BUCKET: ${{ secrets.R2_BUCKET }}
         run: |
+          # Cached images are in the bucket already, from the run that built them.
+          [ "${{ steps.images.outputs.cache-hit }}" != true ] || exit 0
+          tar -cf "$RUNNER_TEMP/images.tar" -C "$RUNNER_TEMP/release" .
+          .github/scripts/r2.sh put "$CACHE_KEY" "$RUNNER_TEMP/images.tar"
+          rm -f "$RUNNER_TEMP/images.tar"
           cd "$RUNNER_TEMP/release"
           for file in *.cpio.gz *.erofs; do
             [ -e "$file" ] || continue
-            aws s3 cp "$file" "s3://$R2_BUCKET/images/$file" \
-              --endpoint-url "https://$R2_ACCOUNT_ID.r2.cloudflarestorage.com"
+            "$GITHUB_WORKSPACE/.github/scripts/r2.sh" put "images/$file" "$file"
           done
 
       - uses: actions/upload-artifact@v4
