@@ -1,0 +1,5 @@
+framework module @LINUXED_RUNTIME_FRAMEWORK_NAME@ {
+    umbrella header "LinuxedRuntime.h"
+    export *
+    module * { export * }
+}

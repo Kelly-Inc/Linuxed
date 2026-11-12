@@ -1,0 +1,546 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 27,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "macos-unit",
+      "displayName": "macOS host unit tests",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/.build/presets/${presetName}",
+      "toolchainFile": "${sourceDir}/cmake/toolchains/Apple.cmake",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "UML_APPLE_PLATFORM": "macos",
+        "UML_BUILD_CLI": false,
+        "UML_BUILD_KERNEL_RUNNER": false,
+        "UML_BUILD_NETWORK_PROVIDER": false,
+        "UML_BUILD_GPU": false,
+        "UML_BUILD_UNIT_TESTS": true,
+        "UML_BUILD_INTEGRATION_TESTS": false,
+        "UML_BUILD_TOOLING_TESTS": true
+      }
+    },
+    {
+      "name": "macos-unit-gpu",
+      "displayName": "macOS host GPU ownership tests",
+      "inherits": "macos-unit",
+      "cacheVariables": {
+        "UML_BUILD_GPU": true
+      }
+    },
+    {
+      "name": "macos-unit-gpu-asan-ubsan",
+      "displayName": "macOS host GPU ownership tests with ASan/UBSan",
+      "inherits": "macos-unit-gpu",
+      "cacheVariables": {
+        "CMAKE_CXX_FLAGS": "-fsanitize=address,undefined",
+        "CMAKE_OBJCXX_FLAGS": "-fsanitize=address,undefined",
+        "CMAKE_EXE_LINKER_FLAGS": "-fsanitize=address,undefined"
+      }
+    },
+    {
+      "name": "macos-tooling",
+      "displayName": "macOS host tooling checks",
+      "inherits": "macos-unit",
+      "cacheVariables": {
+        "UML_BUILD_UNIT_TESTS": false
+      }
+    },
+    {
+      "name": "macos-integration",
+      "displayName": "macOS guest integration tests",
+      "inherits": "macos-unit",
+      "cacheVariables": {
+        "UML_BUILD_CLI": true,
+        "UML_BUILD_KERNEL_RUNNER": true,
+        "UML_BUILD_NETWORK_PROVIDER": true,
+        "UML_BUILD_GPU": true,
+        "UML_BUILD_UNIT_TESTS": false,
+        "UML_BUILD_INTEGRATION_TESTS": true,
+        "UML_INTEGRATION_ROOTFS": "${sourceDir}/rootfs.erofs",
+        "UML_KERNEL_PRODUCT": "mainline-6.18"
+      }
+    },
+    {
+      "name": "macos-x86_64",
+      "displayName": "macOS x86_64 userspace compatibility product (4 KiB)",
+      "inherits": "macos-unit",
+      "cacheVariables": {
+        "UML_BUILD_CLI": true,
+        "UML_BUILD_KERNEL_RUNNER": true,
+        "UML_BUILD_NETWORK_PROVIDER": true,
+        "UML_BUILD_GPU": true,
+        "UML_BUILD_UNIT_TESTS": false,
+        "UML_KERNEL_PRODUCT": "mainline-6.18",
+        "UML_MAINLINE_KERNEL_SLICE": "x86_64"
+      }
+    },
+    {
+      "name": "macos-all",
+      "displayName": "macOS unit and integration tests",
+      "inherits": "macos-integration",
+      "cacheVariables": {
+        "UML_BUILD_UNIT_TESTS": true
+      }
+    },
+    {
+      "name": "macos-unit-asan-ubsan",
+      "displayName": "macOS unit tests with ASan/UBSan",
+      "inherits": "macos-unit",
+      "cacheVariables": {
+        "CMAKE_CXX_FLAGS": "-fsanitize=address,undefined",
+        "CMAKE_OBJCXX_FLAGS": "-fsanitize=address,undefined",
+        "CMAKE_EXE_LINKER_FLAGS": "-fsanitize=address,undefined"
+      }
+    },
+    {
+      "name": "macos-unit-tsan",
+      "displayName": "macOS unit tests with TSan",
+      "inherits": "macos-unit",
+      "cacheVariables": {
+        "CMAKE_CXX_FLAGS": "-fsanitize=thread",
+        "CMAKE_OBJCXX_FLAGS": "-fsanitize=thread",
+        "CMAKE_EXE_LINKER_FLAGS": "-fsanitize=thread"
+      }
+    },
+    {
+      "name": "macos-unit-census",
+      "displayName": "macOS unit tests with the gadget cache census",
+      "inherits": "macos-unit",
+      "cacheVariables": {
+        "UML_GADGET_CACHE_CENSUS": true
+      }
+    },
+    {
+      "name": "macos-loader-asan-ubsan",
+      "displayName": "macOS embedded-loader ASan/UBSan gate",
+      "inherits": "macos-tooling",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "CMAKE_CXX_FLAGS": "-fsanitize=address,undefined",
+        "CMAKE_OBJCXX_FLAGS": "-fsanitize=address,undefined",
+        "CMAKE_EXE_LINKER_FLAGS": "-fsanitize=address,undefined",
+        "UML_BUILD_KERNEL_RUNNER": true
+      }
+    },
+    {
+      "name": "ios-device",
+      "displayName": "iOS device library",
+      "inherits": "macos-unit",
+      "cacheVariables": {
+        "UML_APPLE_PLATFORM": "ios",
+        "UML_BUILD_UNIT_TESTS": false,
+        "UML_BUILD_TOOLING_TESTS": false
+      }
+    },
+    {
+      "name": "ios-simulator",
+      "displayName": "iOS simulator library",
+      "inherits": "macos-unit",
+      "cacheVariables": {
+        "UML_APPLE_PLATFORM": "ios-simulator",
+        "UML_BUILD_UNIT_TESTS": false,
+        "UML_BUILD_TOOLING_TESTS": false
+      }
+    },
+    {
+      "name": "linuxed-ios-device",
+      "displayName": "Linuxed iOS device runtime",
+      "inherits": "ios-device",
+      "binaryDir": "${sourceDir}/.build/linuxed-runtime-ios-device",
+      "cacheVariables": {
+        "UML_BUILD_KERNEL_RUNNER": true,
+        "UML_BUILD_NETWORK_PROVIDER": true,
+        "UML_BUILD_GPU": true,
+        "UML_BUILD_LINUXED_RUNTIME": true,
+        "UML_APPLE_GPU_DEPENDENCY_PREFIX": "${sourceDir}/.build/dependencies/apple-gpu-vulkan-experiment/ios-device-arm64",
+        "UML_IOS_NETWORK_DEPENDENCY_PREFIX": "${sourceDir}/.build/dependencies/ios-device-arm64/network"
+      }
+    },
+    {
+      "name": "linuxed-ios-device-automation",
+      "displayName": "Linuxed iOS device automation runtime",
+      "inherits": "linuxed-ios-device",
+      "binaryDir": "${sourceDir}/.build/linuxed-runtime-ios-device-automation",
+      "cacheVariables": {
+        "UML_LINUXED_AUTOMATION_HARNESS": true
+      }
+    },
+    {
+      "name": "linuxed-ios-simulator",
+      "displayName": "Linuxed iOS Simulator runtime (software GPU)",
+      "inherits": "ios-simulator",
+      "binaryDir": "${sourceDir}/.build/linuxed-runtime-ios-simulator",
+      "cacheVariables": {
+        "UML_BUILD_KERNEL_RUNNER": true,
+        "UML_BUILD_NETWORK_PROVIDER": true,
+        "UML_BUILD_GPU": true,
+        "UML_BUILD_LINUXED_RUNTIME": true,
+        "UML_APPLE_GPU_DEPENDENCY_PREFIX": "${sourceDir}/.build/dependencies/apple-gpu-vulkan-experiment/ios-simulator-arm64",
+        "UML_IOS_NETWORK_DEPENDENCY_PREFIX": "${sourceDir}/.build/dependencies/ios-simulator-arm64/network"
+      }
+    },
+    {
+      "name": "linuxed-ios-simulator-automation",
+      "displayName": "Linuxed iOS Simulator automation runtime (software GPU)",
+      "inherits": "linuxed-ios-simulator",
+      "binaryDir": "${sourceDir}/.build/linuxed-runtime-ios-simulator-automation",
+      "cacheVariables": {
+        "UML_LINUXED_AUTOMATION_HARNESS": true
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "tooling-test-binaries",
+      "configurePreset": "macos-tooling",
+      "targets": ["tooling-test-binaries", "architecture-audit"]
+    },
+    {
+      "name": "unit-test-binaries",
+      "configurePreset": "macos-unit",
+      "targets": ["tooling-test-binaries", "unit-test-binaries", "architecture-audit"]
+    },
+    {
+      "name": "gpu-unit-test-binaries",
+      "configurePreset": "macos-unit-gpu",
+      "targets": ["tooling-test-binaries", "gpu-unit-test-binaries", "architecture-audit"]
+    },
+    {
+      "name": "gpu-unit-test-binaries-asan-ubsan",
+      "configurePreset": "macos-unit-gpu-asan-ubsan",
+      "targets": ["tooling-test-binaries", "gpu-unit-test-binaries", "architecture-audit"]
+    },
+    {
+      "name": "macos-integration",
+      "configurePreset": "macos-integration",
+      "targets": ["tooling-test-binaries", "integration-test-binaries", "architecture-audit"]
+    },
+    {
+      "name": "macos-x86_64",
+      "configurePreset": "macos-x86_64",
+      "targets": ["uml-darwin", "tooling-test-binaries", "architecture-audit"]
+    },
+    {
+      "name": "macos-all",
+      "configurePreset": "macos-all",
+      "targets": ["tooling-test-binaries", "unit-test-binaries", "integration-test-binaries", "architecture-audit"]
+    },
+    {
+      "name": "asan-ubsan",
+      "configurePreset": "macos-unit-asan-ubsan",
+      "targets": ["unit-test-binaries"]
+    },
+    {
+      "name": "tsan",
+      "configurePreset": "macos-unit-tsan",
+      "targets": ["unit-test-binaries"]
+    },
+    {
+      "name": "census",
+      "configurePreset": "macos-unit-census",
+      "targets": ["unit-test-binaries"]
+    },
+    {
+      "name": "loader-asan-ubsan",
+      "configurePreset": "macos-loader-asan-ubsan",
+      "targets": ["uml_embedded_kernel_serialization_tests", "architecture-audit"]
+    },
+    {
+      "name": "ios-device",
+      "configurePreset": "ios-device",
+      "targets": ["uml_emulator", "architecture-audit"]
+    },
+    {
+      "name": "ios-simulator",
+      "configurePreset": "ios-simulator",
+      "targets": ["uml_emulator", "architecture-audit"]
+    },
+    {
+      "name": "linuxed-ios-device",
+      "configurePreset": "linuxed-ios-device",
+      "targets": ["LinuxedRuntime", "architecture-audit"]
+    },
+    {
+      "name": "linuxed-ios-device-automation",
+      "configurePreset": "linuxed-ios-device-automation",
+      "targets": ["LinuxedRuntime", "architecture-audit"]
+    },
+    {
+      "name": "linuxed-ios-simulator",
+      "configurePreset": "linuxed-ios-simulator",
+      "targets": ["LinuxedRuntime", "architecture-audit"]
+    },
+    {
+      "name": "linuxed-ios-simulator-automation",
+      "configurePreset": "linuxed-ios-simulator-automation",
+      "targets": ["LinuxedRuntime", "architecture-audit"]
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "test-defaults",
+      "hidden": true,
+      "description": "Output and resource settings for every test preset outside the unit-gpu family; unit-gpu owns the GPU name filter and has no parent",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "resourceSpecFile": "${sourceDir}/cmake/ctest-resources.json"
+      }
+    },
+    {
+      "name": "unit",
+      "inherits": "test-defaults",
+      "configurePreset": "macos-unit",
+      "filter": {
+        "include": {
+          "label": "^unit$"
+        }
+      },
+      "execution": {
+        "jobs": 10
+      }
+    },
+    {
+      "name": "unit-gpu",
+      "configurePreset": "macos-unit-gpu",
+      "output": {
+        "outputOnFailure": true
+      },
+      "filter": {
+        "include": {
+          "name": "^(gpu-|platform-video-(decoder|encoder(-recovery|-cache)?)$|video-encoder-capabilities$|virtio-(battery|console|input|sound|video|video-encoder)-protocol$)"
+        }
+      },
+      "execution": {
+        "jobs": 1
+      }
+    },
+    {
+      "name": "unit-gpu-asan-ubsan",
+      "inherits": "unit-gpu",
+      "configurePreset": "macos-unit-gpu-asan-ubsan"
+    },
+    {
+      "name": "tooling-gpu-vnc",
+      "inherits": "test-defaults",
+      "configurePreset": "macos-unit-gpu",
+      "filter": {
+        "include": {
+          "name": "^virtio-gpu-vnc-smoke$"
+        }
+      },
+      "execution": {
+        "jobs": 1
+      }
+    },
+    {
+      "name": "tooling-gpu-vnc-asan-ubsan",
+      "inherits": "tooling-gpu-vnc",
+      "configurePreset": "macos-unit-gpu-asan-ubsan"
+    },
+    {
+      "name": "integration-fast",
+      "inherits": "test-defaults",
+      "configurePreset": "macos-integration",
+      "filter": {
+        "include": {
+          "label": "^integration$"
+        },
+        "exclude": {
+          "label": "pressure"
+        }
+      },
+      "execution": {
+        "jobs": 1
+      }
+    },
+    {
+      "name": "integration-full",
+      "inherits": "test-defaults",
+      "configurePreset": "macos-integration",
+      "filter": {
+        "include": {
+          "label": "^integration$"
+        }
+      },
+      "execution": {
+        "jobs": 1
+      }
+    },
+    {
+      "name": "tooling",
+      "inherits": "test-defaults",
+      "configurePreset": "macos-tooling",
+      "filter": {
+        "include": {
+          "label": "^tooling$"
+        }
+      },
+      "execution": {
+        "jobs": 10
+      }
+    },
+    {
+      "name": "tooling-unit",
+      "inherits": "tooling",
+      "configurePreset": "macos-unit"
+    },
+    {
+      "name": "tooling-integration",
+      "inherits": "tooling",
+      "configurePreset": "macos-integration",
+      "execution": {
+        "jobs": 1
+      }
+    },
+    {
+      "name": "tooling-all",
+      "inherits": "tooling-unit",
+      "configurePreset": "macos-all"
+    },
+    {
+      "name": "all",
+      "inherits": "test-defaults",
+      "configurePreset": "macos-all",
+      "filter": {
+        "include": {
+          "label": "^(unit|integration)$"
+        }
+      },
+      "execution": {
+        "jobs": 1
+      }
+    },
+    {
+      "name": "unit-asan-ubsan",
+      "inherits": "test-defaults",
+      "configurePreset": "macos-unit-asan-ubsan",
+      "filter": {
+        "include": {
+          "label": "^unit$"
+        }
+      }
+    },
+    {
+      "name": "unit-tsan",
+      "inherits": "test-defaults",
+      "configurePreset": "macos-unit-tsan",
+      "filter": {
+        "include": {
+          "label": "tsan"
+        }
+      },
+      "execution": {
+        "jobs": 3
+      }
+    },
+    {
+      "name": "unit-census",
+      "inherits": "test-defaults",
+      "configurePreset": "macos-unit-census",
+      "environment": {
+        "DARWIN_UML_GADGET_CACHE_CENSUS": "/dev/null",
+        "DARWIN_UML_GADGET_CACHE_CENSUS_SECONDS": "1",
+        "DARWIN_UML_GADGET_CACHE_CENSUS_WORDS": "1"
+      },
+      "filter": {
+        "include": {
+          "label": "^unit$"
+        }
+      },
+      "execution": {
+        "jobs": 10
+      }
+    },
+    {
+      "name": "loader-asan-ubsan",
+      "inherits": "test-defaults",
+      "configurePreset": "macos-loader-asan-ubsan",
+      "filter": {
+        "include": {
+          "name": "^embedded-kernel-handle-serialization$"
+        }
+      },
+      "execution": {
+        "jobs": 1
+      }
+    }
+  ],
+  "workflowPresets": [
+    {
+      "name": "check-tooling",
+      "steps": [
+        {"type": "configure", "name": "macos-tooling"},
+        {"type": "build", "name": "tooling-test-binaries"},
+        {"type": "test", "name": "tooling"}
+      ]
+    },
+    {
+      "name": "check-unit",
+      "steps": [
+        {"type": "configure", "name": "macos-unit"},
+        {"type": "build", "name": "unit-test-binaries"},
+        {"type": "test", "name": "unit"},
+        {"type": "test", "name": "tooling-unit"}
+      ]
+    },
+    {
+      "name": "check-integration",
+      "steps": [
+        {"type": "configure", "name": "macos-integration"},
+        {"type": "build", "name": "macos-integration"},
+        {"type": "test", "name": "tooling-integration"},
+        {"type": "test", "name": "integration-fast"}
+      ]
+    },
+    {
+      "name": "check-gpu",
+      "steps": [
+        {"type": "configure", "name": "macos-unit-gpu"},
+        {"type": "build", "name": "gpu-unit-test-binaries"},
+        {"type": "test", "name": "unit-gpu"},
+        {"type": "test", "name": "tooling-gpu-vnc"}
+      ]
+    },
+    {
+      "name": "check-gpu-asan-ubsan",
+      "steps": [
+        {"type": "configure", "name": "macos-unit-gpu-asan-ubsan"},
+        {"type": "build", "name": "gpu-unit-test-binaries-asan-ubsan"},
+        {"type": "test", "name": "unit-gpu-asan-ubsan"},
+        {"type": "test", "name": "tooling-gpu-vnc-asan-ubsan"}
+      ]
+    },
+    {
+      "name": "check-all",
+      "steps": [
+        {"type": "configure", "name": "macos-all"},
+        {"type": "build", "name": "macos-all"},
+        {"type": "test", "name": "all"},
+        {"type": "test", "name": "tooling-all"}
+      ]
+    },
+    {
+      "name": "check-loader-asan-ubsan",
+      "steps": [
+        {"type": "configure", "name": "macos-loader-asan-ubsan"},
+        {"type": "build", "name": "loader-asan-ubsan"},
+        {"type": "test", "name": "loader-asan-ubsan"}
+      ]
+    },
+    {
+      "name": "check-unit-census",
+      "steps": [
+        {"type": "configure", "name": "macos-unit-census"},
+        {"type": "build", "name": "census"},
+        {"type": "test", "name": "unit-census"}
+      ]
+    }
+  ]
+}

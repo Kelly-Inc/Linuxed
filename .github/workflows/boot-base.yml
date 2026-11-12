@@ -1,0 +1,70 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+#
+# Build starter products (tools/rootfs/starter) and attach them to the
+# `ci-inputs` release. Buildroot output is not byte-reproducible, so a new boot
+# base is accepted only by committing its size and SHA-256 in
+# tools/rootfs/boot-ramdisk/accepted-aarch64.env.
+name: Starter images
+
+on:
+  workflow_dispatch:
+    inputs:
+      products:
+        description: Space-separated starter products
+        default: boot-base-aarch64
+        required: true
+      release:
+        description: Release tag the images are attached to
+        default: ci-inputs
+        required: true
+  # Image workflows call this one with their product and release.
+  workflow_call:
+    inputs:
+      products:
+        type: string
+        required: true
+      release:
+        type: string
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  starter:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 180
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PRODUCTS: ${{ inputs.products }}
+      RELEASE: ${{ inputs.release }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install producer tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential bc cpio curl debootstrap e2fsprogs erofs-utils file gdisk rsync unzip wget
+
+      - name: Build
+        run: |
+          set --
+          for product in $PRODUCTS; do set -- "$@" --product "$product"; done
+          tools/rootfs/starter/build-all.sh "$@" \
+            --work "$RUNNER_TEMP/work" --output "$RUNNER_TEMP/release" --jobs "$(nproc)"
+          ls -l "$RUNNER_TEMP/release"
+          (cd "$RUNNER_TEMP/release" && sha256sum *)
+
+      - name: Attach to the release
+        run: |
+          gh release view "$RELEASE" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1 ||
+            gh release create "$RELEASE" -R "$GITHUB_REPOSITORY" --title "$RELEASE" --notes "Starter images built by the boot-base workflow."
+          cd "$RUNNER_TEMP/release"
+          files=$(ls *.cpio.gz *.erofs 2>/dev/null || true)
+          test -n "$files"
+          gh release upload "$RELEASE" -R "$GITHUB_REPOSITORY" $files --clobber
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: starter-release
+          path: ${{ runner.temp }}/release

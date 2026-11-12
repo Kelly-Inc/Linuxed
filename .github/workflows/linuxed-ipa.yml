@@ -1,0 +1,326 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+#
+# Build an unsigned Linuxed .ipa for the iOS device. The kernel job builds
+# the Linux kernel bundle only when a kernel input changes, and
+# the cached bundles serve every other run. The accepted boot base archive is
+# not rebuildable byte-for-byte, so it comes from the `ci-inputs` release.
+# Configure and packaging verify every input against the tracked descriptors.
+name: Build Linuxed IPA
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  kernel:
+    runs-on: macos-26
+    timeout-minutes: 240
+    env:
+      CCACHE_DIR: ${{ github.workspace }}/.build/ccache-kernel
+      CCACHE_MAXSIZE: 3G
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Restore kernel bundles
+        id: bundles
+        uses: actions/cache@v4
+        with:
+          path: .build/kernel/artifacts
+          key: kernel-${{ hashFiles('kernel/common/**', 'kernel/mainline-6.18/**') }}
+
+      - uses: actions/setup-python@v5
+        if: steps.bundles.outputs.cache-hit != 'true'
+        with:
+          python-version: "3.12"
+
+      - name: Install kernel toolchain
+        if: steps.bundles.outputs.cache-hit != 'true'
+        run: |
+          brew install ccache llvm lld make autoconf automake gettext libtool bison flex meson ninja pkg-config rsync
+          echo "$(brew --prefix bison)/bin" >> "$GITHUB_PATH"
+          echo "$(brew --prefix flex)/bin" >> "$GITHUB_PATH"
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Restore kernel host tools
+        if: steps.bundles.outputs.cache-hit != 'true'
+        id: hosttools
+        uses: actions/cache@v4
+        with:
+          path: .build/dependencies/kernel-host-tools
+          key: kernel-host-tools-${{ hashFiles('dependencies/manifest.tsv', 'dependencies/kernel-host-tools/**', 'dependencies/patches/**', 'dependencies/build-kernel-host-tools.sh') }}
+
+      - name: Build kernel host tools
+        if: steps.bundles.outputs.cache-hit != 'true' && steps.hosttools.outputs.cache-hit != 'true'
+        run: |
+          dependencies/prepare.sh --product kernel-host-tools
+          dependencies/prepare.sh --archive-manifest dependencies/kernel-host-tools/archives.tsv
+          dependencies/build-kernel-host-tools.sh --jobs "$(sysctl -n hw.logicalcpu)"
+
+      - name: Restore compiler cache
+        if: steps.bundles.outputs.cache-hit != 'true'
+        uses: actions/cache@v4
+        with:
+          path: .build/ccache-kernel
+          key: ccache-kernel-${{ github.run_id }}
+          restore-keys: ccache-kernel-
+
+      - name: Build and publish kernels
+        if: steps.bundles.outputs.cache-hit != 'true'
+        run: |
+          llvm=$(brew --prefix llvm)/bin
+          # ccache's masquerade wrapper runs the first other clang on PATH.
+          export PATH="$llvm:$PATH"
+          export UML_KERNEL_CC="$(brew --prefix ccache)/libexec/clang"
+          export UML_KERNEL_LD="$(brew --prefix lld)/bin/ld.lld"
+          # Apple's ar and friends cannot handle Kbuild's ELF archives.
+          export UML_KERNEL_AR=$llvm/llvm-ar UML_KERNEL_NM=$llvm/llvm-nm \
+            UML_KERNEL_OBJCOPY=$llvm/llvm-objcopy UML_KERNEL_OBJDUMP=$llvm/llvm-objdump \
+            UML_KERNEL_READELF=$llvm/llvm-readelf UML_KERNEL_STRIP=$llvm/llvm-strip
+          # The kernel source has paths that differ only by case.
+          hdiutil create -size 40g -type SPARSE -fs "Case-sensitive APFS" -volname kernel-src "$RUNNER_TEMP/kernel-src"
+          hdiutil attach "$RUNNER_TEMP/kernel-src.sparseimage" -mountpoint "$RUNNER_TEMP/ksrc"
+          echo "UML_KERNEL_SOURCE_DIR=$RUNNER_TEMP/ksrc/linux" > kernel/mainline-6.18/source-location.conf
+          kernel/mainline-6.18/scripts/prepare-source.sh
+          for product in linux; do
+            env=kernel/mainline-6.18/artifacts/accepted-4k.env
+            release=$(. "./$env"; printf '%s' "$UML_KERNEL_ARTIFACT_RELEASE_ID")
+            build="$RUNNER_TEMP/ksrc/build-$product"
+            kernel/mainline-6.18/build/build-kernel.sh --product "$product" --build "$build"
+            kernel/mainline-6.18/build/publish-artifact.py --product "$product" \
+              --source "$RUNNER_TEMP/ksrc/linux" --build "$build" \
+              --output-root "$PWD/.build/kernel/artifacts" --release-id "$release" \
+              --objcopy "$llvm/llvm-objcopy"
+          done
+          ccache -s
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kernel-bundles
+          path: .build/kernel/artifacts
+          if-no-files-found: error
+          retention-days: 3
+
+  ipa:
+    needs: kernel
+    runs-on: macos-26
+    timeout-minutes: 240
+    permissions:
+      contents: read
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      CCACHE_DIR: ${{ github.workspace }}/.build/ccache-runtime
+      XCODE_VERSION: "27.2"
+    steps:
+      - uses: actions/checkout@v4
+
+      # shortcut: hosted images carry no Xcode 27 yet; drop these steps once one does.
+      # Unpacking the .xip takes most of the install, so the unpacked Xcode is
+      # cached as a zstd archive. The .xip stays cached beneath it so a lost
+      # archive is rebuilt without asking the Apple ID for a code.
+      - name: Restore installed Xcode
+        id: xcodeapp
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/xcode-app
+          key: xcode-app-${{ env.XCODE_VERSION }}
+
+      - name: Restore Xcode download
+        id: xcode
+        if: steps.xcodeapp.outputs.cache-hit != 'true'
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/xcode-xip
+          key: xcode-xip-${{ env.XCODE_VERSION }}
+
+      - name: Download Xcode ${{ env.XCODE_VERSION }}
+        if: steps.xcodeapp.outputs.cache-hit != 'true' && steps.xcode.outputs.cache-hit != 'true'
+        env:
+          XCODES_USERNAME: ${{ secrets.XCODES_USERNAME }}
+          XCODES_PASSWORD: ${{ secrets.XCODES_PASSWORD }}
+        run: |
+          test -n "$XCODES_USERNAME" && test -n "$XCODES_PASSWORD" ||
+            { echo "set the XCODES_USERNAME and XCODES_PASSWORD repository secrets"; exit 1; }
+          brew install xcodes aria2
+          mkdir -p "$RUNNER_TEMP/xcode-xip"
+          # Apple's two-factor code reaches the owner's phone, so the job asks for
+          # it in an issue and reads the owner's reply into xcodes' prompt.
+          issue=$(gh issue create --title "Xcode login code for run ${{ github.run_id }}" \
+            --body "Reply with the 6-digit Apple ID code within 15 minutes if your phone shows one." | sed 's|.*/||')
+          since=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          mkfifo "$RUNNER_TEMP/code"
+          (
+            exec 3>"$RUNNER_TEMP/code"
+            end=$((SECONDS + 900))
+            while [ $SECONDS -lt $end ]; do
+              reply=$(gh api "repos/$GITHUB_REPOSITORY/issues/$issue/comments?since=$since" \
+                --jq '[.[] | select(.author_association == "OWNER")] | last | "\(.id) \(.body)"' 2>/dev/null || true)
+              code=$(printf '%s' "${reply#* }" | tr -dc 0-9 | cut -c1-6)
+              if [ ${#code} -eq 6 ]; then
+                gh api -X DELETE "repos/$GITHUB_REPOSITORY/issues/comments/${reply%% *}" || true
+                printf '%s\n' "$code" >&3
+                # Hold the pipe open until xcodes finishes so it never reads end of file early.
+                while pgrep -x xcodes >/dev/null; do sleep 5; done
+                exit 0
+              fi
+              sleep 10
+            done
+            # No code came: closing the pipe ends a prompt that is still waiting.
+            echo "no Apple ID code within 15 minutes"
+          ) &
+          status=0
+          xcodes download "$XCODE_VERSION" --directory "$RUNNER_TEMP/xcode-xip" <"$RUNNER_TEMP/code" || status=$?
+          gh issue close "$issue" || true
+          [ "$status" -eq 0 ] || exit "$status"
+          ls -l "$RUNNER_TEMP/xcode-xip"
+
+      - name: Save Xcode download
+        if: steps.xcodeapp.outputs.cache-hit != 'true' && steps.xcode.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/xcode-xip
+          key: xcode-xip-${{ env.XCODE_VERSION }}
+
+      - name: Install Xcode ${{ env.XCODE_VERSION }}
+        run: |
+          sudo rm -rf /Applications/Xcode_26.[0-5]*.app
+          archive=$RUNNER_TEMP/xcode-app/Xcode.tar.zst
+          if [ -f "$archive" ]; then
+            zstd -dc "$archive" | sudo tar -xpf - -C /Applications
+            rm -f "$archive"
+            sudo xcode-select -s /Applications/Xcode-"$XCODE_VERSION"*.app
+            sudo xcodebuild -license accept
+            sudo xcodebuild -runFirstLaunch
+          else
+            brew install xcodes
+            xip=$(ls "$RUNNER_TEMP"/xcode-xip/*.xip)
+            xcodes install "$XCODE_VERSION" --path "$xip" --experimental-unxip --select
+            rm -f "$xip"
+            mkdir -p "$RUNNER_TEMP/xcode-app"
+            app=$(basename /Applications/Xcode-"$XCODE_VERSION"*.app)
+            tar -cf - -C /Applications "$app" | zstd -T0 -3 -q -o "$archive"
+            ls -l "$archive"
+          fi
+          xcodebuild -version | grep -q '^Xcode 27' || { xcodebuild -version; exit 1; }
+          xcodebuild -downloadPlatform iOS
+          xcodebuild -downloadComponent MetalToolchain
+
+      - name: Save installed Xcode
+        if: steps.xcodeapp.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/xcode-app
+          key: xcode-app-${{ env.XCODE_VERSION }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install build tools
+        run: |
+          brew install autoconf automake bison ccache flex gettext gperf groff libtool make meson ninja pkg-config rsync
+          echo "$(brew --prefix bison)/bin" >> "$GITHUB_PATH"
+          echo "$(brew --prefix flex)/bin" >> "$GITHUB_PATH"
+          python -m venv .build/gpu-tools-venv
+          .build/gpu-tools-venv/bin/pip install meson mako pyyaml packaging
+          # Patch replay commits in throwaway source trees need an identity.
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: kernel-bundles
+          path: .build/kernel/artifacts
+
+      # The release string carries the replay commit's hash, which depends on
+      # who replayed the series and when, so the CI kernel takes its own in
+      # this checkout; the final tree, ABI and family are still checked.
+      - name: Adopt the CI kernels' release strings
+        run: |
+          for env in kernel/mainline-6.18/artifacts/accepted-4k.env; do
+            dir=$(. "./$env"; printf '%s' "$UML_KERNEL_ARTIFACT_DIRECTORY_NAME")
+            release=$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["release"])' \
+              ".build/kernel/artifacts/$dir/kernel-artifact.json")
+            sed -i '' "s|^UML_KERNEL_ARTIFACT_RELEASE=.*|UML_KERNEL_ARTIFACT_RELEASE='$release'|" "$env"
+            grep -n RELEASE= "$env"
+          done
+
+      - name: Fetch accepted boot base
+        run: |
+          eval "$(. ./tools/rootfs/boot-ramdisk/accepted-aarch64.env; printf 'release=%s file=%s' "$UML_BOOT_BASE_RELEASE" "$UML_BOOT_BASE_FILE")"
+          mkdir -p ".build/rootfs/$release"
+          gh release download ci-inputs -p "$file" -D ".build/rootfs/$release"
+
+      - name: Restore dependency prefixes
+        id: deps
+        uses: actions/cache/restore@v4
+        with:
+          path: .build/dependencies
+          key: ios-deps-${{ hashFiles('dependencies/**') }}-xcode27
+
+      # Packaging re-verifies the sources, so they are fetched even when the
+      # built prefixes come from the cache.
+      - name: Fetch dependency sources
+        run: |
+          for product in apple-gpu-vulkan-experiment ios-network ios-storage ios-compression; do
+            dependencies/prepare.sh --product "$product"
+          done
+
+      - name: Build dependency prefixes
+        if: steps.deps.outputs.cache-hit != 'true'
+        run: |
+          jobs=$(sysctl -n hw.logicalcpu)
+          dependencies/build-apple-gpu.sh --platform ios --jobs "$jobs" \
+            --prefix .build/dependencies/apple-gpu-vulkan-experiment/ios-device-arm64
+          dependencies/build-ios-network.sh --platform ios --jobs "$jobs"
+
+      # Saved at once, so a later failing step does not discard an hour of build.
+      - name: Save dependency prefixes
+        if: steps.deps.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: .build/dependencies
+          key: ${{ steps.deps.outputs.cache-primary-key }}
+
+      - name: Restore compiler cache
+        uses: actions/cache@v4
+        with:
+          path: .build/ccache-runtime
+          key: ccache-runtime-${{ github.run_id }}
+          restore-keys: ccache-runtime-
+
+      - name: Build runtimes
+        run: |
+          for preset in linuxed-ios-device; do
+            cmake --preset "$preset" -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+            cmake --build --preset "$preset"
+          done
+          ccache -s
+
+      - name: Package frameworks
+        run: Linuxed/scripts/package-ios-frameworks.sh --sdk device
+
+      - name: Build unsigned Linuxed app
+        run: |
+          xcodebuild -project Linuxed/Linuxed.xcodeproj -scheme Linuxed \
+            -configuration Release -destination generic/platform=iOS \
+            -derivedDataPath .build/ci-derived-data \
+            CODE_SIGNING_ALLOWED=NO build
+          mkdir -p .build/ipa/Payload
+          cp -R .build/ci-derived-data/Build/Products/Release-iphoneos/Linuxed.app .build/ipa/Payload/
+          (cd .build/ipa && zip -qry Linuxed-unsigned.ipa Payload)
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Linuxed-unsigned-ipa
+          path: .build/ipa/Linuxed-unsigned.ipa
+          if-no-files-found: error
