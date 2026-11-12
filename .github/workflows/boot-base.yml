@@ -46,14 +46,15 @@ jobs:
       R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
       R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
       R2_BUCKET: ${{ secrets.R2_BUCKET }}
-      # A product rebuilds only when its producer changes.
-      CACHE_KEY: cache/images/${{ inputs.products }}-${{ hashFiles('tools/rootfs/starter/**', 'tools/rootfs/desktop/**', 'tools/video/**') }}.tar
     steps:
       - uses: actions/checkout@v4
 
       - name: Restore built images from R2
         id: images
         if: inputs.r2
+        env:
+          # A product rebuilds only when its producer changes.
+          CACHE_KEY: cache/images/${{ inputs.products }}-${{ hashFiles('tools/rootfs/starter/**', 'tools/rootfs/desktop/**', 'tools/video/**') }}.tar
         run: |
           if .github/scripts/r2.sh has "$CACHE_KEY"; then
             .github/scripts/r2.sh get "$CACHE_KEY" "$RUNNER_TEMP/images.tar"
@@ -91,6 +92,9 @@ jobs:
 
       - name: Upload to R2
         if: inputs.r2
+        env:
+          # A product rebuilds only when its producer changes.
+          CACHE_KEY: cache/images/${{ inputs.products }}-${{ hashFiles('tools/rootfs/starter/**', 'tools/rootfs/desktop/**', 'tools/video/**') }}.tar
         run: |
           # Cached images are in the bucket already, from the run that built them.
           [ "${{ steps.images.outputs.cache-hit }}" != true ] || exit 0
