@@ -162,14 +162,28 @@ jobs:
   upload-images:
     needs: images
     runs-on: ubuntu-24.04
+    permissions:
+      actions: read
+      contents: read
+    env:
+      GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
+      # The image jobs hand on only the images they built, not cached ones.
+      - name: Find freshly built images
+        id: built
+        run: |
+          count=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/artifacts" \
+            --jq '[.artifacts[] | select(.name | startswith("starter-"))] | length')
+          echo "count=$count" >> "$GITHUB_OUTPUT"
       - uses: actions/download-artifact@v4
+        if: steps.built.outputs.count != '0'
         with:
           pattern: starter-*
           path: images
           merge-multiple: true
       - name: Upload the guest images to R2
+        if: steps.built.outputs.count != '0'
         run: |
           for file in images/*.erofs; do
             .github/scripts/r2.sh put "images/$(basename "$file")" "$file"

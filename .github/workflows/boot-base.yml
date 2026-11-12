@@ -102,7 +102,9 @@ jobs:
           .github/scripts/r2.sh put "$CACHE_KEY" "$RUNNER_TEMP/images.tar"
           rm -f "$RUNNER_TEMP/images.tar"
 
+      # Only a fresh build is handed on; a cached image is in R2 already.
       - uses: actions/upload-artifact@v4
+        if: steps.images.outputs.cache-hit != 'true'
         with:
           name: starter-${{ inputs.release }}
           path: ${{ runner.temp }}/release
