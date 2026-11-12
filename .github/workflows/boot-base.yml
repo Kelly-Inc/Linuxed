@@ -90,7 +90,7 @@ jobs:
           test -n "$files"
           gh release upload "$RELEASE" -R "$GITHUB_REPOSITORY" $files --clobber
 
-      - name: Upload to R2
+      - name: Save to the R2 cache
         if: inputs.r2
         env:
           # A product rebuilds only when its producer changes.
@@ -101,11 +101,6 @@ jobs:
           tar -cf "$RUNNER_TEMP/images.tar" -C "$RUNNER_TEMP/release" .
           .github/scripts/r2.sh put "$CACHE_KEY" "$RUNNER_TEMP/images.tar"
           rm -f "$RUNNER_TEMP/images.tar"
-          cd "$RUNNER_TEMP/release"
-          for file in *.cpio.gz *.erofs; do
-            [ -e "$file" ] || continue
-            "$GITHUB_WORKSPACE/.github/scripts/r2.sh" put "images/$file" "$file"
-          done
 
       - uses: actions/upload-artifact@v4
         with:

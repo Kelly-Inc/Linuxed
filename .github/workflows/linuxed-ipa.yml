@@ -156,8 +156,24 @@ jobs:
       release: ${{ matrix.release }}
       r2: true
 
+  upload-images:
+    needs: images
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: starter-*
+          path: images
+          merge-multiple: true
+      - name: Upload the guest images to R2
+        run: |
+          for file in images/*.erofs; do
+            .github/scripts/r2.sh put "images/$(basename "$file")" "$file"
+          done
+
   ipa:
-    needs: [kernel, images]
+    needs: [kernel, upload-images]
     runs-on: macos-26
     timeout-minutes: 240
     permissions:
@@ -174,8 +190,18 @@ jobs:
       # Unpacking the .xip takes most of the install, so the unpacked Xcode is
       # kept in R2 as a zstd archive, with the .xip beside it so a lost archive
       # is rebuilt without asking the Apple ID for a code.
+      # The runner image's own Xcode 27 skips every step below that fetches one.
+      - name: Use the runner's Xcode 27
+        id: pre
+        run: |
+          app=$(ls -d /Applications/Xcode_27*.app 2>/dev/null | sort -V | tail -1)
+          [ -n "$app" ] || exit 0
+          sudo xcode-select -s "$app"
+          echo found=true >> "$GITHUB_OUTPUT"
+
       - name: Restore Xcode from R2
         id: xcode
+        if: steps.pre.outputs.found != 'true'
         run: |
           mkdir -p "$RUNNER_TEMP/xcode-app" "$RUNNER_TEMP/xcode-xip"
           if .github/scripts/r2.sh has "cache/xcode/Xcode-$XCODE_VERSION.tar.zst"; then
@@ -187,7 +213,7 @@ jobs:
           fi
 
       - name: Download Xcode ${{ env.XCODE_VERSION }}
-        if: steps.xcode.outputs.app-hit != 'true' && steps.xcode.outputs.xip-hit != 'true'
+        if: steps.pre.outputs.found != 'true' && steps.xcode.outputs.app-hit != 'true' && steps.xcode.outputs.xip-hit != 'true'
         env:
           XCODES_USERNAME: ${{ secrets.XCODES_USERNAME }}
           XCODES_PASSWORD: ${{ secrets.XCODES_PASSWORD }}
@@ -228,12 +254,13 @@ jobs:
           ls -l "$RUNNER_TEMP/xcode-xip"
 
       - name: Save Xcode download to R2
-        if: steps.xcode.outputs.app-hit != 'true' && steps.xcode.outputs.xip-hit != 'true'
+        if: steps.pre.outputs.found != 'true' && steps.xcode.outputs.app-hit != 'true' && steps.xcode.outputs.xip-hit != 'true'
         run: |
           xip=$(ls "$RUNNER_TEMP"/xcode-xip/*.xip)
           .github/scripts/r2.sh put "cache/xcode/Xcode-$XCODE_VERSION.xip" "$xip"
 
       - name: Install Xcode ${{ env.XCODE_VERSION }}
+        if: steps.pre.outputs.found != 'true'
         run: |
           sudo rm -rf /Applications/Xcode_26.[0-5]*.app
           archive=$RUNNER_TEMP/xcode-app/Xcode.tar.zst
@@ -253,12 +280,15 @@ jobs:
             tar -cf - -C /Applications "$app" | zstd -T0 -3 -q -o "$archive"
             ls -l "$archive"
           fi
+
+      - name: Add the iOS platform and Metal toolchain
+        run: |
           xcodebuild -version | grep -q '^Xcode 27' || { xcodebuild -version; exit 1; }
           xcodebuild -downloadPlatform iOS
           xcodebuild -downloadComponent MetalToolchain
 
       - name: Save installed Xcode to R2
-        if: steps.xcode.outputs.app-hit != 'true'
+        if: steps.pre.outputs.found != 'true' && steps.xcode.outputs.app-hit != 'true'
         run: |
           .github/scripts/r2.sh put "cache/xcode/Xcode-$XCODE_VERSION.tar.zst" "$RUNNER_TEMP/xcode-app/Xcode.tar.zst"
 
@@ -365,13 +395,22 @@ jobs:
           (cd .build/ipa && zip -qry Linuxed-unsigned.ipa Payload)
 
       # The .ipa itself, under its commit and as the latest one.
-      - name: Upload the IPA to R2
-        run: |
-          .github/scripts/r2.sh put "ipa/Linuxed-$GITHUB_SHA.ipa" .build/ipa/Linuxed-unsigned.ipa
-          .github/scripts/r2.sh put ipa/Linuxed-latest.ipa .build/ipa/Linuxed-unsigned.ipa
-
       - uses: actions/upload-artifact@v4
         with:
           name: Linuxed-unsigned-ipa
           path: .build/ipa/Linuxed-unsigned.ipa
           if-no-files-found: error
+
+  upload-ipa:
+    needs: ipa
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: Linuxed-unsigned-ipa
+          path: ipa
+      - name: Upload the IPA to R2
+        run: |
+          .github/scripts/r2.sh put "ipa/Linuxed-$GITHUB_SHA.ipa" ipa/Linuxed-unsigned.ipa
+          .github/scripts/r2.sh put ipa/Linuxed-latest.ipa ipa/Linuxed-unsigned.ipa
