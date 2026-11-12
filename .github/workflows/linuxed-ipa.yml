@@ -1,8 +1,12 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 #
-# Build an unsigned Linuxed .ipa for the iOS device. The kernel is never built
-# here: the accepted kernel bundle and boot base archive come from the
-# `ci-inputs` release of heyskylo/KellyLinux.
+# Build an unsigned Linuxed .ipa for the iOS device. Two jobs run first, side
+# by side: the kernel job builds the Linux kernel bundle when a kernel input
+# changes and restores it from the cache otherwise, and the images job builds
+# the guest images and attaches each to its release. The IPA job starts once
+# both have finished. The accepted boot base archive is not rebuildable
+# byte-for-byte, so it is not rebuilt here and comes from the `ci-inputs`
+# release of heyskylo/KellyLinux.
 # Configure and packaging verify every input against the tracked descriptors.
 name: Build Linuxed IPA
 
@@ -19,7 +23,115 @@ permissions:
   contents: read
 
 jobs:
+  kernel:
+    runs-on: macos-26
+    timeout-minutes: 240
+    env:
+      CCACHE_DIR: ${{ github.workspace }}/.build/ccache-kernel
+      CCACHE_MAXSIZE: 3G
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Restore kernel bundles
+        id: bundles
+        uses: actions/cache@v4
+        with:
+          path: .build/kernel/artifacts
+          key: kernel-${{ hashFiles('kernel/common/**', 'kernel/mainline-6.18/**') }}
+
+      - uses: actions/setup-python@v5
+        if: steps.bundles.outputs.cache-hit != 'true'
+        with:
+          python-version: "3.12"
+
+      - name: Install kernel toolchain
+        if: steps.bundles.outputs.cache-hit != 'true'
+        run: |
+          brew install ccache llvm lld make autoconf automake gettext libtool bison flex meson ninja pkg-config rsync
+          echo "$(brew --prefix bison)/bin" >> "$GITHUB_PATH"
+          echo "$(brew --prefix flex)/bin" >> "$GITHUB_PATH"
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Restore kernel host tools
+        if: steps.bundles.outputs.cache-hit != 'true'
+        id: hosttools
+        uses: actions/cache@v4
+        with:
+          path: .build/dependencies/kernel-host-tools
+          key: kernel-host-tools-${{ hashFiles('dependencies/manifest.tsv', 'dependencies/kernel-host-tools/**', 'dependencies/patches/**', 'dependencies/build-kernel-host-tools.sh') }}
+
+      - name: Build kernel host tools
+        if: steps.bundles.outputs.cache-hit != 'true' && steps.hosttools.outputs.cache-hit != 'true'
+        run: |
+          dependencies/prepare.sh --product kernel-host-tools
+          dependencies/prepare.sh --archive-manifest dependencies/kernel-host-tools/archives.tsv
+          dependencies/build-kernel-host-tools.sh --jobs "$(sysctl -n hw.logicalcpu)"
+
+      - name: Restore compiler cache
+        if: steps.bundles.outputs.cache-hit != 'true'
+        uses: actions/cache@v4
+        with:
+          path: .build/ccache-kernel
+          key: ccache-kernel-${{ github.run_id }}
+          restore-keys: ccache-kernel-
+
+      - name: Build and publish kernels
+        if: steps.bundles.outputs.cache-hit != 'true'
+        run: |
+          llvm=$(brew --prefix llvm)/bin
+          # ccache's masquerade wrapper runs the first other clang on PATH.
+          export PATH="$llvm:$PATH"
+          export UML_KERNEL_CC="$(brew --prefix ccache)/libexec/clang"
+          export UML_KERNEL_LD="$(brew --prefix lld)/bin/ld.lld"
+          # Apple's ar and friends cannot handle Kbuild's ELF archives.
+          export UML_KERNEL_AR=$llvm/llvm-ar UML_KERNEL_NM=$llvm/llvm-nm \
+            UML_KERNEL_OBJCOPY=$llvm/llvm-objcopy UML_KERNEL_OBJDUMP=$llvm/llvm-objdump \
+            UML_KERNEL_READELF=$llvm/llvm-readelf UML_KERNEL_STRIP=$llvm/llvm-strip
+          # The kernel source has paths that differ only by case.
+          hdiutil create -size 40g -type SPARSE -fs "Case-sensitive APFS" -volname kernel-src "$RUNNER_TEMP/kernel-src"
+          hdiutil attach "$RUNNER_TEMP/kernel-src.sparseimage" -mountpoint "$RUNNER_TEMP/ksrc"
+          echo "UML_KERNEL_SOURCE_DIR=$RUNNER_TEMP/ksrc/linux" > kernel/mainline-6.18/source-location.conf
+          kernel/mainline-6.18/scripts/prepare-source.sh
+          for product in linux; do
+            env=kernel/mainline-6.18/artifacts/accepted-4k.env
+            release=$(. "./$env"; printf '%s' "$UML_KERNEL_ARTIFACT_RELEASE_ID")
+            build="$RUNNER_TEMP/ksrc/build-$product"
+            kernel/mainline-6.18/build/build-kernel.sh --product "$product" --build "$build"
+            kernel/mainline-6.18/build/publish-artifact.py --product "$product" \
+              --source "$RUNNER_TEMP/ksrc/linux" --build "$build" \
+              --output-root "$PWD/.build/kernel/artifacts" --release-id "$release" \
+              --objcopy "$llvm/llvm-objcopy"
+          done
+          ccache -s
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kernel-bundles
+          path: .build/kernel/artifacts
+          if-no-files-found: error
+          retention-days: 3
+
+  images:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - product: debian-13-xfce
+            release: debian-xfce
+          - product: debian-13-phosh
+            release: debian-phosh
+          - product: debian-13-plasma-mobile
+            release: debian-plasma-mobile
+    permissions:
+      contents: write
+    uses: ./.github/workflows/boot-base.yml
+    with:
+      products: ${{ matrix.product }}
+      release: ${{ matrix.release }}
+
   ipa:
+    needs: [kernel, images]
     runs-on: macos-26
     timeout-minutes: 240
     permissions:
@@ -145,14 +257,10 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-      # The bundle is the accepted descriptor's, published as
-      # linuxed-kernel-arm64-4k-<release ID>.tar.gz; configure verifies it.
-      - name: Fetch accepted kernel bundle
-        run: |
-          release=$(. ./kernel/mainline-6.18/artifacts/accepted-4k.env; printf '%s' "$UML_KERNEL_ARTIFACT_RELEASE_ID")
-          mkdir -p .build/kernel/artifacts
-          gh release download ci-inputs -R heyskylo/KellyLinux \
-            -p "linuxed-kernel-arm64-4k-$release.tar.gz" -O - | tar -xz -C .build/kernel/artifacts
+      - uses: actions/download-artifact@v4
+        with:
+          name: kernel-bundles
+          path: .build/kernel/artifacts
 
       # The release string carries the replay commit's hash, which depends on
       # who replayed the series and when, so the CI kernel takes its own in

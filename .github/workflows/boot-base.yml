@@ -66,5 +66,5 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: starter-release
+          name: starter-${{ inputs.release }}
           path: ${{ runner.temp }}/release

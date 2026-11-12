@@ -226,14 +226,18 @@ in the ignored `GuestHost/Config/Signing.local.xcconfig`
 ([setup](../GuestHost/README.md#signing)); without it a Simulator build works
 unsigned.
 
-GitHub Actions (`.github/workflows/linuxed-ipa.yml`) builds an unsigned
-Linuxed `.ipa` for the iOS device on every push to `main`. It builds no
-kernel: the accepted kernel bundle
-(`linuxed-kernel-arm64-4k-<release ID>.tar.gz`) and the aarch64 boot base
-archive are assets of the `ci-inputs` release of heyskylo/KellyLinux, so a
-new accepted kernel or base needs a new asset there. The bundle's release
-string names its own replay commit, so the job adopts it in its checkout and
-still checks the final tree, ABI and family.
+GitHub Actions (`.github/workflows/linuxed-ipa.yml`, "Build Linuxed IPA")
+builds an unsigned Linuxed `.ipa` for the iOS device on every push to `main`.
+Its kernel job builds and publishes the Linux bundle under the accepted
+release ID when a file under `kernel/` changes and restores the cached bundle
+otherwise; its images job builds the Debian guest images and attaches each to
+its release. The IPA job waits for both. The bundle's release string names its
+own replay commit, so the IPA job adopts it in its checkout and still checks
+the final tree, ABI and family. The aarch64 boot base archive is not
+rebuildable byte-for-byte, so it comes from the `ci-inputs` release of
+heyskylo/KellyLinux, and a new accepted base needs a new asset there.
+`.github/workflows-backup/` keeps the previous workflow, which fetched the
+kernel instead of building it; GitHub does not run it from there.
 
 Apple builds validate the kernel bridge ABI, page profile, product family and
 `6.18` series of an accepted kernel bundle. They never prepare sources or
