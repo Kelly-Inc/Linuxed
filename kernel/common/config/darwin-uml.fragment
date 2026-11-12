@@ -419,6 +419,13 @@ CONFIG_STACKPROTECTOR=y
 CONFIG_STACKPROTECTOR_STRONG=y
 CONFIG_HARDENED_USERCOPY=y
 
+# --- Host battery -----------------------------------------------------------
+# The host's battery percentage and charging state, as a power supply. The
+# hwmon bridge adds nothing the power-supply class does not report.
+CONFIG_POWER_SUPPLY=y
+# CONFIG_POWER_SUPPLY_HWMON is not set
+CONFIG_KERNARIUM_VIRTIO_BATTERY=y
+
 # --- Display and input ------------------------------------------------------
 # uinput and evdev are software-only interfaces: they let guest userspace
 # construct and consume virtual input devices without exposing host hardware.

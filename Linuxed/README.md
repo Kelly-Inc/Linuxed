@@ -137,6 +137,8 @@ Linuxed attaches:
   127, plus Back and Home);
 - Virtio-Sound playback and capture, which records silence unless the user
   turns on Microphone;
+- a Virtio battery reflecting the phone's battery level and charging state,
+  which the guest sees as a power supply;
 - SLiRP networking from the verified iOS prefix;
 - a Virtio vsock device ([the device](../darwin/device/vsock/README.md)), the
   last Virtio device, through which the application opens streams to guest

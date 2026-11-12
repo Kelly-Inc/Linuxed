@@ -1174,6 +1174,8 @@ private:
         std::unique_ptr<uml::gpu::InProcessVhostUserService> audio;
         std::unique_ptr<uml::gpu::InProcessVhostUserService> video;
         std::unique_ptr<uml::gpu::InProcessVhostUserService> videoEncoder;
+        /* The phone's battery, as the guest's power supply. */
+        std::unique_ptr<uml::gpu::InProcessVhostUserService> battery;
         /* The vsock device, the last Virtio device of the boot. */
         std::optional<uml::vsock::InProcessService> vsock;
         std::optional<ConsoleBridge> console;
@@ -1203,6 +1205,7 @@ private:
         if (!uml::platform::videoEncodeCapabilities().empty())
             boot->videoEncoder = uml::video::makeInProcessEncoderService(
                 sharedMemoryRegions_);
+        boot->battery = uml::battery::makeInProcessService();
         boot->console.emplace();
 
         auto& arguments = boot->arguments;
@@ -1261,6 +1264,9 @@ private:
                 boot->videoEncoder->takeConnectionName(),
                 uml::video::encoderDeviceId));
         }
+        arguments.emplace_back(uml::gpu::virtioDeviceArgument(
+            boot->battery->takeConnectionName(),
+            uml::battery::protocol::deviceId));
 #if LINUXED_AUTOMATION_HARNESS
         if (request_.automation != nullptr) {
             if (auto relay = request_.automation->relayDeviceArgument();
