@@ -717,8 +717,11 @@ build_debian_desktop()
 	recommends=--no-install-recommends
 	case "$session" in
 	xfce)
+		# The power manager's panel plugin shows the phone's battery,
+		# which UPower reads from the guest's power supply.
 		packages="xserver-xorg-core xserver-xorg-input-libinput lightdm
-			lightdm-gtk-greeter xfce4 xfce4-terminal"
+			lightdm-gtk-greeter xfce4 xfce4-terminal upower
+			xfce4-power-manager xfce4-power-manager-plugins"
 		;;
 	phosh)
 		packages="phosh-core gnome-console greetd xwayland"
