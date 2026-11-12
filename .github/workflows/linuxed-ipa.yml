@@ -431,3 +431,20 @@ jobs:
         run: |
           .github/scripts/r2.sh put "ipa/Linuxed-$GITHUB_SHA.ipa" ipa/Linuxed-unsigned.ipa
           .github/scripts/r2.sh put ipa/Linuxed-latest.ipa ipa/Linuxed-unsigned.ipa
+
+      # The AltStore source respring.lol/repo serves; SOURCE_TOKEN may write
+      # Kelly-Inc/.github, which the run's own token cannot.
+      - name: Update the AltStore source
+        env:
+          GH_TOKEN: ${{ secrets.SOURCE_TOKEN }}
+          FILE: repositories/altstore.json
+        run: |
+          test -n "$GH_TOKEN" || { echo "set the SOURCE_TOKEN repository secret"; exit 1; }
+          sha=$(gh api "repos/Kelly-Inc/.github/contents/$FILE" --jq .sha)
+          gh api "repos/Kelly-Inc/.github/contents/$FILE" --jq .content | base64 -d > altstore.json
+          curl -sfL --max-time 60 https://respring.lol/repo -o seed.json || true
+          python3 .github/scripts/update-source.py altstore.json ipa/Linuxed-unsigned.ipa \
+            "https://releases.respring.lol/ipa/Linuxed-$GITHUB_SHA.ipa" --seed seed.json
+          gh api -X PUT "repos/Kelly-Inc/.github/contents/$FILE" \
+            -f message="Linuxed: point the source at ${GITHUB_SHA::7}" \
+            -f content="$(base64 -w0 altstore.json)" -f sha="$sha" >/dev/null
