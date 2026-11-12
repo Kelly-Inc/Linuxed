@@ -151,12 +151,13 @@ esac
 CHECK
 chmod 0755 /usr/local/bin/gpucheck
 
-# fastfetch names the Apple device as the host, and the display after the
-# renderer; the rest is fastfetch's default module list.
+# fastfetch shows the Apple logo, names the Apple device as the host, and the
+# display after the renderer; the rest is fastfetch's default module list.
 install -m 0755 /tmp/kellylinux-host /usr/libexec/kellylinux-host
 install -d -m 0755 /etc/xdg/fastfetch
 cat > /etc/xdg/fastfetch/config.jsonc <<'CONFIG'
 {
+  "logo": { "source": "macos" },
   "modules": [
     "title", "separator", "os",
     { "type": "command", "key": "Host", "text": "/usr/libexec/kellylinux-host" },
