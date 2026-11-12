@@ -227,12 +227,13 @@ in the ignored `GuestHost/Config/Signing.local.xcconfig`
 unsigned.
 
 GitHub Actions (`.github/workflows/linuxed-ipa.yml`) builds an unsigned
-Linuxed `.ipa` for the iOS device on every push to `main`. Its kernel job
-builds and publishes the Linux bundle under the accepted release ID, and only when a file under `kernel/` changes; other runs reuse the cached
-bundles. Its release string names its own replay commit, so the IPA job adopts
-it in its checkout and still checks the final tree, ABI and family. The
-aarch64 boot base archive is not rebuildable byte-for-byte, so it comes from the assets of the `ci-inputs` release, and a new accepted base needs
-a new asset there.
+Linuxed `.ipa` for the iOS device on every push to `main`. It builds no
+kernel: the accepted kernel bundle
+(`linuxed-kernel-arm64-4k-<release ID>.tar.gz`) and the aarch64 boot base
+archive are assets of the `ci-inputs` release of heyskylo/KellyLinux, so a
+new accepted kernel or base needs a new asset there. The bundle's release
+string names its own replay commit, so the job adopts it in its checkout and
+still checks the final tree, ABI and family.
 
 Apple builds validate the kernel bridge ABI, page profile, product family and
 `6.18` series of an accepted kernel bundle. They never prepare sources or
