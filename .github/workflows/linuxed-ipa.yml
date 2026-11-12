@@ -3,10 +3,13 @@
 # Build an unsigned Linuxed .ipa for the iOS device. Two jobs run first, side
 # by side: the kernel job builds the Linux kernel bundle when a kernel input
 # changes and restores it from the cache otherwise, and the images job builds
-# the guest images and attaches each to its release. The IPA job starts once
-# both have finished. The accepted boot base archive is not rebuildable
-# byte-for-byte, so it is not rebuilt here and comes from the `ci-inputs`
-# release of heyskylo/KellyLinux.
+# the guest images (restored from the cache while their producer is
+# unchanged), attaches each to its release and uploads it to the R2 bucket.
+# The IPA job starts once both have finished, then uploads the .ipa to the R2
+# bucket. The bucket is named by the R2_ACCOUNT_ID, R2_ACCESS_KEY_ID,
+# R2_SECRET_ACCESS_KEY and R2_BUCKET secrets. The accepted boot base archive
+# is not rebuildable byte-for-byte, so it is not rebuilt here and comes from
+# the `ci-inputs` release of heyskylo/KellyLinux.
 # Configure and packaging verify every input against the tracked descriptors.
 name: Build Linuxed IPA
 
@@ -126,9 +129,11 @@ jobs:
     permissions:
       contents: write
     uses: ./.github/workflows/boot-base.yml
+    secrets: inherit
     with:
       products: ${{ matrix.product }}
       release: ${{ matrix.release }}
+      r2: true
 
   ipa:
     needs: [kernel, images]
@@ -339,6 +344,21 @@ jobs:
           mkdir -p .build/ipa/Payload
           cp -R .build/ci-derived-data/Build/Products/Release-iphoneos/Linuxed.app .build/ipa/Payload/
           (cd .build/ipa && zip -qry Linuxed-unsigned.ipa Payload)
+
+      # The .ipa itself, under its commit and as the latest one.
+      - name: Upload the IPA to the R2 bucket
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+        run: |
+          endpoint="https://$R2_ACCOUNT_ID.r2.cloudflarestorage.com"
+          aws s3 cp .build/ipa/Linuxed-unsigned.ipa "s3://$R2_BUCKET/ipa/Linuxed-$GITHUB_SHA.ipa" \
+            --endpoint-url "$endpoint" --content-type application/octet-stream
+          aws s3 cp .build/ipa/Linuxed-unsigned.ipa "s3://$R2_BUCKET/ipa/Linuxed-latest.ipa" \
+            --endpoint-url "$endpoint" --content-type application/octet-stream
 
       - uses: actions/upload-artifact@v4
         with:

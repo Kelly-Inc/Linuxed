@@ -26,6 +26,10 @@ on:
       release:
         type: string
         required: true
+      r2:
+        description: Also upload the images to the R2 bucket (R2_* secrets)
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -41,12 +45,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # A product rebuilds only when its producer changes.
+      - name: Restore built images
+        id: images
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/release
+          key: guest-images-${{ inputs.products }}-${{ hashFiles('tools/rootfs/starter/**', 'tools/rootfs/desktop/**', 'tools/video/**') }}
+
       - name: Install producer tools
+        if: steps.images.outputs.cache-hit != 'true'
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential bc cpio curl debootstrap e2fsprogs erofs-utils file gdisk rsync unzip wget
 
       - name: Build
+        if: steps.images.outputs.cache-hit != 'true'
         run: |
           set --
           for product in $PRODUCTS; do set -- "$@" --product "$product"; done
@@ -63,6 +77,22 @@ jobs:
           files=$(ls *.cpio.gz *.erofs 2>/dev/null || true)
           test -n "$files"
           gh release upload "$RELEASE" -R "$GITHUB_REPOSITORY" $files --clobber
+
+      - name: Upload to the R2 bucket
+        if: inputs.r2
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+        run: |
+          cd "$RUNNER_TEMP/release"
+          for file in *.cpio.gz *.erofs; do
+            [ -e "$file" ] || continue
+            aws s3 cp "$file" "s3://$R2_BUCKET/images/$file" \
+              --endpoint-url "https://$R2_ACCOUNT_ID.r2.cloudflarestorage.com"
+          done
 
       - uses: actions/upload-artifact@v4
         with:

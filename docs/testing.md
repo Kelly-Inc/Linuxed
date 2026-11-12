@@ -230,8 +230,11 @@ GitHub Actions (`.github/workflows/linuxed-ipa.yml`, "Build Linuxed IPA")
 builds an unsigned Linuxed `.ipa` for the iOS device on every push to `main`.
 Its kernel job builds and publishes the Linux bundle under the accepted
 release ID when a file under `kernel/` changes and restores the cached bundle
-otherwise; its images job builds the Debian guest images and attaches each to
-its release. The IPA job waits for both. The bundle's release string names its
+otherwise; its images job builds the Debian guest images (or restores them
+from the cache while `tools/rootfs` is unchanged), attaches each to its
+release and uploads it to the R2 bucket under `images/`. The IPA job waits for
+both and uploads the `.ipa` under `ipa/`; the `R2_*` repository secrets name
+the bucket and its credentials. The bundle's release string names its
 own replay commit, so the IPA job adopts it in its checkout and still checks
 the final tree, ABI and family. The aarch64 boot base archive is not
 rebuildable byte-for-byte, so it comes from the `ci-inputs` release of
