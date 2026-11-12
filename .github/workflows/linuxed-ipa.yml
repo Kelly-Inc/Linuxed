@@ -48,6 +48,9 @@ jobs:
         env:
           KEY: cache/kernel/${{ hashFiles('kernel/common/**', 'kernel/mainline-6.18/**') }}.tar.zst
         run: |
+          # The build writes source-location.conf under kernel/, so the save
+          # step reuses this key rather than hashing the tree again.
+          echo "key=$KEY" >> "$GITHUB_OUTPUT"
           if .github/scripts/r2.sh has "$KEY"; then
             .github/scripts/r2.sh get "$KEY" "$RUNNER_TEMP/kernel.tar.zst"
             mkdir -p .build/kernel/artifacts
@@ -124,7 +127,7 @@ jobs:
       - name: Save kernel bundles to R2
         if: steps.bundles.outputs.cache-hit != 'true'
         env:
-          KEY: cache/kernel/${{ hashFiles('kernel/common/**', 'kernel/mainline-6.18/**') }}.tar.zst
+          KEY: ${{ steps.bundles.outputs.key }}
         run: |
           tar -cf - -C .build/kernel/artifacts . | zstd -T0 -q -o "$RUNNER_TEMP/kernel.tar.zst"
           .github/scripts/r2.sh put "$KEY" "$RUNNER_TEMP/kernel.tar.zst"
