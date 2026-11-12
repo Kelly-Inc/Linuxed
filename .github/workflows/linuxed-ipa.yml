@@ -233,7 +233,7 @@ jobs:
             end=$((SECONDS + 900))
             while [ $SECONDS -lt $end ]; do
               reply=$(gh api "repos/$GITHUB_REPOSITORY/issues/$issue/comments?since=$since" \
-                --jq '[.[] | select(.author_association == "OWNER")] | last | "\(.id) \(.body)"' 2>/dev/null || true)
+                --jq '[.[] | select(.author_association == "OWNER" or .author_association == "MEMBER" or .author_association == "COLLABORATOR")] | last | "\(.id) \(.body)"' 2>/dev/null || true)
               code=$(printf '%s' "${reply#* }" | tr -dc 0-9 | cut -c1-6)
               if [ ${#code} -eq 6 ]; then
                 gh api -X DELETE "repos/$GITHUB_REPOSITORY/issues/comments/${reply%% *}" || true
