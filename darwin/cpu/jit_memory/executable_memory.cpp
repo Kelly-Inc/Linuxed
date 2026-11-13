@@ -8,6 +8,20 @@
 #include <pthread.h>
 #include <unistd.h>
 
+#if defined(__APPLE__)
+#include <TargetConditionals.h>
+#endif
+#if defined(__APPLE__) && defined(__aarch64__) && TARGET_OS_IOS && \
+	!TARGET_OS_SIMULATOR && !defined(UML_APP_STORE_RUNTIME)
+#include <csignal>
+#include <mach/mach.h>
+#include <sys/ucontext.h>
+#define UML_JIT_IOS_DEBUGGER_POOL 1
+#else
+#define UML_JIT_IOS_DEBUGGER_POOL 0
+#endif
+
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -46,6 +60,13 @@ constexpr bool jit_publication_supported() noexcept
 	return false;
 }
 #endif
+
+/* Whether JIT memory comes from the Window below: near this image on macOS,
+ * the debugger-blessed pool on an iOS device. */
+constexpr bool serves_window() noexcept
+{
+	return jit_publication_supported() || UML_JIT_IOS_DEBUGGER_POOL;
+}
 
 /* Where JIT code lives.
  *
@@ -88,6 +109,18 @@ public:
 		os_unfair_lock_unlock(&lock_);
 	}
 
+	/* Serves from mapping, bytes long, instead of a range of its own. */
+	void adopt(void *mapping, std::size_t bytes) noexcept
+	{
+		os_unfair_lock_lock(&lock_);
+		if (!claimed_) {
+			claimed_ = true;
+			base_ = static_cast<std::byte *>(mapping);
+			granules_ = std::min(bytes, max_bytes) / granule;
+		}
+		os_unfair_lock_unlock(&lock_);
+	}
+
 	[[nodiscard]] void *allocate(std::size_t size) noexcept
 	{
 		if (size == 0 || size > max_bytes)
@@ -103,8 +136,9 @@ public:
 			return nullptr;
 		void *mapping = base_ + first * granule;
 		/* A released range is reusable: the kernel may discard its pages
-		 * until it is claimed back. */
-		(void)madvise(mapping, count * granule, MADV_FREE_REUSE);
+		 * until it is claimed back. Blessed pool pages are kept as they are. */
+		if constexpr (!UML_JIT_IOS_DEBUGGER_POOL)
+			(void)madvise(mapping, count * granule, MADV_FREE_REUSE);
 		return mapping;
 	}
 
@@ -126,7 +160,8 @@ public:
 			return true;
 		/* Marked reusable before it is free, so no later claim can
 		 * race the advice. */
-		(void)madvise(mapping, count * granule, MADV_FREE_REUSABLE);
+		if constexpr (!UML_JIT_IOS_DEBUGGER_POOL)
+			(void)madvise(mapping, count * granule, MADV_FREE_REUSABLE);
 		os_unfair_lock_lock(&lock_);
 		mark(first, count, false);
 		os_unfair_lock_unlock(&lock_);
@@ -153,6 +188,9 @@ private:
 		if (claimed_)
 			return;
 		claimed_ = true;
+		/* An iOS device serves only the pool adopt() handed over. */
+		if constexpr (UML_JIT_IOS_DEBUGGER_POOL)
+			return;
 		if (static_cast<std::size_t>(getpagesize()) > granule)
 			return;
 		/* Any function of this image locates it. */
@@ -215,12 +253,104 @@ private:
 
 constinit Window window;
 
+#if UML_JIT_IOS_DEBUGGER_POOL
+/* iOS lets a process run code it writes only while a debugger has attached
+ * (CS_DEBUGGED), and on a device with the Trusted Execution Monitor only in
+ * pages the debugger blessed. The pool follows StikDebug's universal.js
+ * protocol: one read-execute range is blessed in a single request, a
+ * read-write mirror of the same pages takes the writes, and the debugger
+ * then detaches. A process no debugger attached to never traps.
+ */
+extern "C" int csops(pid_t pid, unsigned int ops, void *status, size_t size);
+
+constexpr std::size_t pool_bytes = std::size_t{1} << 30U;
+constinit std::byte *pool_base = nullptr;
+constinit std::ptrdiff_t pool_mirror_offset = 0;
+volatile std::sig_atomic_t debugger_missed = 0;
+
+void skip_unhandled_break(int, siginfo_t *, void *context)
+{
+	debugger_missed = 1;
+	static_cast<ucontext_t *>(context)->uc_mcontext->__ss.__pc += 4;
+}
+
+/* universal.js command x16 with x0 and x1; false when no debugger answered. */
+bool debugger_command(unsigned command, void *address, std::size_t size)
+{
+	struct sigaction previous {};
+	struct sigaction handler {};
+	handler.sa_sigaction = skip_unhandled_break;
+	handler.sa_flags = SA_SIGINFO;
+	sigemptyset(&handler.sa_mask);
+	sigaction(SIGTRAP, &handler, &previous);
+	debugger_missed = 0;
+	asm volatile("mov x0, %0\n"
+		     "mov x1, %1\n"
+		     "mov x16, %2\n"
+		     "brk #0xf00d"
+		     :
+		     : "r"(address), "r"(size),
+		       "r"(static_cast<std::uint64_t>(command))
+		     : "x0", "x1", "x16", "memory");
+	sigaction(SIGTRAP, &previous, nullptr);
+	return debugger_missed == 0;
+}
+
+bool debugger_attached() noexcept
+{
+	constexpr unsigned status = 0;
+	constexpr std::uint32_t debugged = 0x10000000;
+	std::uint32_t flags = 0;
+	return csops(getpid(), status, &flags, sizeof flags) == 0 &&
+	       (flags & debugged) != 0;
+}
+
+bool create_debugger_pool() noexcept
+{
+	if (!debugger_attached())
+		return false;
+	void *executable = mmap(nullptr, pool_bytes, PROT_READ | PROT_EXEC,
+		MAP_PRIVATE | MAP_ANON, -1, 0);
+	if (executable == MAP_FAILED)
+		return false;
+	constexpr unsigned prepare_region = 1;
+	constexpr unsigned detach = 0;
+	if (!debugger_command(prepare_region, executable, pool_bytes)) {
+		(void)munmap(executable, pool_bytes);
+		return false;
+	}
+	vm_address_t mirror = 0;
+	vm_prot_t current = VM_PROT_NONE;
+	vm_prot_t maximum = VM_PROT_NONE;
+	if (vm_remap(mach_task_self(), &mirror, pool_bytes, 0,
+		    VM_FLAGS_ANYWHERE, mach_task_self(),
+		    reinterpret_cast<vm_address_t>(executable), FALSE, &current,
+		    &maximum, VM_INHERIT_NONE) != KERN_SUCCESS) {
+		(void)munmap(executable, pool_bytes);
+		return false;
+	}
+	if (mprotect(reinterpret_cast<void *>(mirror), pool_bytes,
+		    PROT_READ | PROT_WRITE) != 0) {
+		(void)vm_deallocate(mach_task_self(), mirror, pool_bytes);
+		(void)munmap(executable, pool_bytes);
+		return false;
+	}
+	pool_base = static_cast<std::byte *>(executable);
+	pool_mirror_offset = reinterpret_cast<std::byte *>(mirror) - pool_base;
+	(void)debugger_command(detach, nullptr, 0);
+	window.adopt(executable, pool_bytes);
+	return true;
+}
+#endif
+
 } // namespace
 
 bool available() noexcept
 {
 	static const bool supported = [] {
-#if defined(__APPLE__) && defined(__aarch64__) && defined(MAP_JIT)
+#if UML_JIT_IOS_DEBUGGER_POOL
+		return create_debugger_pool();
+#elif defined(__APPLE__) && defined(__aarch64__) && defined(MAP_JIT)
 		/* A successful MAP_JIT mapping is necessary but not sufficient:
 		 * without a W^X toggle the first store into it faults. Requiring
 		 * the publication route keeps this from promising an engine that
@@ -245,10 +375,12 @@ bool available() noexcept
 
 void *allocate(std::size_t size) noexcept
 {
-	if constexpr (jit_publication_supported()) {
+	if constexpr (serves_window()) {
 		if (void *mapping = window.allocate(size); mapping != nullptr)
 			return mapping;
 	}
+	if constexpr (UML_JIT_IOS_DEBUGGER_POOL)
+		return nullptr;
 	void *mapping = mmap(nullptr, size, PROT_READ | PROT_WRITE | PROT_EXEC,
 		MAP_PRIVATE | MAP_ANON | MAP_JIT, -1, 0);
 	return mapping == MAP_FAILED ? nullptr : mapping;
@@ -256,11 +388,22 @@ void *allocate(std::size_t size) noexcept
 
 void release(void *mapping, std::size_t size)
 {
-	if constexpr (jit_publication_supported()) {
+	if constexpr (serves_window()) {
 		if (window.release(mapping, size))
 			return;
 	}
 	(void)munmap(mapping, size);
+}
+
+void *writable_alias(void *code) noexcept
+{
+#if UML_JIT_IOS_DEBUGGER_POOL
+	auto *bytes = static_cast<std::byte *>(code);
+	if (pool_base != nullptr && bytes >= pool_base &&
+	    bytes < pool_base + pool_bytes)
+		return bytes + pool_mirror_offset;
+#endif
+	return code;
 }
 
 void set_writable(bool writable)

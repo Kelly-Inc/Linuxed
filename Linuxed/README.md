@@ -85,6 +85,11 @@ Launch does not compare kernel, runtime, or rootfs release identities; missing
 or malformed inputs fail at their ordinary file or image boundary. Compressed delivery is an application concern: `ZstdUtil`
 publishes its destination only after a complete decode.
 
+A guest normally runs on the gadget engine. Launched with JIT enabled through
+StikDebug, using its `universal.js` script, Linuxed runs the arm64 JIT engine
+instead ([architecture](../docs/architecture.md#executable-code)); the
+App Store runtime never does.
+
 ## Guest boot
 
 A Linux run boots the base archive the runtime embeds

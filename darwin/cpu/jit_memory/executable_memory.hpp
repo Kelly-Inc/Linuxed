@@ -27,6 +27,13 @@ namespace uml::cpu::jit_memory {
  */
 [[nodiscard]] void *allocate(std::size_t size) noexcept;
 
+/* The address through which code at code, in memory allocate served, is
+ * written. On an iOS device code runs from a read-execute view and is
+ * written through a read-write mirror of the same pages; elsewhere it is
+ * code itself.
+ */
+[[nodiscard]] void *writable_alias(void *code) noexcept;
+
 /* The calls below end in the C library, which the compiler cannot prove
  * nothrow. They are not noexcept, so none compiles to a frame with its own
  * terminate handler.

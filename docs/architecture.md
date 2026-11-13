@@ -172,6 +172,12 @@ packaging reject it in the macOS and iOS device slices. On macOS the owner serve
 JIT memory from a window near the host image, because generated code calls into
 it and a far buffer made x87-heavy FEXCore code about a third slower; memory
 served again may hold its old bytes.
+An iOS device has JIT memory only while a debugger has attached: the owner
+then reserves one read-execute pool, has the debugger bless it with StikDebug's
+`universal.js` protocol (`brk #0xf00d`), writes code through a read-write mirror
+of the same pages (`writable_alias`), and lets the debugger detach. Without a
+debugger, or in the App Store runtime and the Simulator, there is none and the
+automatic engine is the gadget engine.
 
 Every product that embeds a kernel carries its ELF as a host-page-aligned
 Mach-O `__TEXT,__uml_elf` section, which the emulator runs in place: the loader

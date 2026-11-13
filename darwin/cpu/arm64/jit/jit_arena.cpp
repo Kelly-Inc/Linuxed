@@ -37,7 +37,7 @@ void *ExecutableArena::store(
 		return nullptr;
 	auto *destination = static_cast<std::byte *>(mapping_) + aligned;
 	jit_memory::set_writable(true);
-	std::memcpy(destination, words.data(), bytes);
+	std::memcpy(jit_memory::writable_alias(destination), words.data(), bytes);
 	jit_memory::set_writable(false);
 	jit_memory::invalidate_instruction_cache(destination, bytes);
 	used_ = aligned + bytes;
@@ -98,8 +98,9 @@ ExecutableArena::StoredBlock ExecutableArena::store_block(
 		(void)links.find_or_create(missing_keys[index], generation);
 	auto *destination = static_cast<std::byte *>(mapping_) + aligned;
 	jit_memory::set_writable(true);
-	std::memcpy(destination, words.data(), bytes);
-	auto *stored = reinterpret_cast<std::uint32_t *>(destination);
+	auto *stored = static_cast<std::uint32_t *>(
+		jit_memory::writable_alias(destination));
+	std::memcpy(stored, words.data(), bytes);
 	auto *target_link = links.find(key, generation);
 	std::size_t direct_refusals = 0;
 	for (std::size_t index = 0; index < relocations.size(); ++index) {
