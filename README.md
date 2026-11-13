@@ -66,7 +66,6 @@ Questions, screenshots and bug reports are welcome on **[Discord](https://discor
 
 - **Skylo** ([@heyskylo](https://x.com/heyskylo)) — developer
 - **[timi2506](https://github.com/timi2506)** — icon designer
-- Linuxed grew out of the Kernarium project, and stands on [User-mode Linux](https://user-mode-linux.sourceforge.net/), [Mesa](https://mesa3d.org/), [libslirp](https://gitlab.freedesktop.org/slirp/libslirp) and [FEX](https://github.com/FEX-Emu/FEX).
 
 ## License
 
