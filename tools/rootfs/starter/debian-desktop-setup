@@ -105,6 +105,13 @@ plasma-mobile)
 ztmetro)
 	# greetd starts the ztMETRO compositor as user, as ztOS itself does.
 	[ -x /usr/local/bin/ztmetro ] || fail "the image has no ztMETRO shell"
+	# The guest keyboard has Back and Home keys, which ztMETRO takes for a
+	# phone's own buttons and hides its navigation bar for; there are none.
+	for home in /etc/skel /home/user; do
+		install -d -m 0755 "$home/.config/ztmetro"
+		printf '%s\n' 'nav_bar = on' > "$home/.config/ztmetro/config"
+	done
+	chown -R user:user /home/user/.config
 	install -d -m 0755 /etc/greetd
 	cat > /etc/greetd/config.toml <<'CONFIG'
 [terminal]
