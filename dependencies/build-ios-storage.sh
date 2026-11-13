@@ -20,15 +20,15 @@ JOBS=${UML_IOS_STORAGE_DEPENDENCY_JOBS:-8}
 
 check_source()
 {
-	[ -f "$SOURCE/Makefile.kernarium" ] || fail "prepared GPT fdisk core source is missing"
+	[ -f "$SOURCE/Makefile.linuxed" ] || fail "prepared GPT fdisk core source is missing"
 }
 
 build_library()
 {
 	cxx=$($XCRUN --sdk "$sdk_name" --find clang++)
-	# Makefile.kernarium adds the file-only define, the language standard
+	# Makefile.linuxed adds the file-only define, the language standard
 	# and hidden visibility itself.
-	"$MAKE" -C "$SOURCE" -f Makefile.kernarium \
+	"$MAKE" -C "$SOURCE" -f Makefile.linuxed \
 		BUILD_DIR="$build_dir" LIBRARY="$library" \
 		CXX="$cxx" AR="$ar" RANLIB="$ranlib" \
 		CXXFLAGS="-target $target -isysroot $sdk_root -O2 -fPIC -ffunction-sections -fdata-sections -Wall -Wextra -Werror" \
@@ -37,7 +37,7 @@ build_library()
 
 install_headers()
 {
-	cp "$SOURCE/kernarium_gptfdisk.h" "$1/GPTFDisk.h"
+	cp "$SOURCE/linuxed_gptfdisk.h" "$1/GPTFDisk.h"
 }
 
 record_provenance()

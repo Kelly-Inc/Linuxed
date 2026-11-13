@@ -4,40 +4,40 @@ Date: Fri, 28 Aug 2026 15:31:43 +0900
 Subject: [PATCH] Add file-only GPT core library for iOS
 
 ---
- Makefile.kernarium    |  33 ++++++
- diskio-unix.cc        |  29 +++++-
- guid.cc               |   2 +-
- kernarium_gptfdisk.cc | 231 ++++++++++++++++++++++++++++++++++++++++++
- kernarium_gptfdisk.h  |  57 +++++++++++
- support.h             |   7 +-
+ Makefile.linuxed    |  33 +++++++
+ diskio-unix.cc      |  29 +++++-
+ guid.cc             |   2 +-
+ linuxed_gptfdisk.cc | 231 ++++++++++++++++++++++++++++++++++++++++++++
+ linuxed_gptfdisk.h  |  57 +++++++++++
+ support.h           |   7 +-
  6 files changed, 354 insertions(+), 5 deletions(-)
- create mode 100644 Makefile.kernarium
- create mode 100644 kernarium_gptfdisk.cc
- create mode 100644 kernarium_gptfdisk.h
+ create mode 100644 Makefile.linuxed
+ create mode 100644 linuxed_gptfdisk.cc
+ create mode 100644 linuxed_gptfdisk.h
 
-diff --git a/Makefile.kernarium b/Makefile.kernarium
+diff --git a/Makefile.linuxed b/Makefile.linuxed
 new file mode 100644
-index 0000000000000000000000000000000000000000..108aeeed7fc70084ac99d28ff7b2519f179f8994
+index 0000000000000000000000000000000000000000..fe57e285ce6a5ac7d0eb8eb7d59bc6f3a9c26ded
 --- /dev/null
-+++ b/Makefile.kernarium
++++ b/Makefile.linuxed
 @@ -0,0 +1,33 @@
 +# SPDX-License-Identifier: GPL-2.0-or-later
 +
 +CXX ?= c++
 +AR ?= ar
 +RANLIB ?= ranlib
-+BUILD_DIR ?= build-kernarium
-+LIBRARY ?= $(BUILD_DIR)/libkernarium_gptfdisk.a
++BUILD_DIR ?= build-linuxed
++LIBRARY ?= $(BUILD_DIR)/liblinuxed_gptfdisk.a
 +
 +CORE_SOURCES = \
 +	attributes.cc basicmbr.cc bsd.cc crc32.cc diskio.cc diskio-unix.cc \
 +	gpt.cc gptpart.cc guid.cc mbr.cc mbrpart.cc parttypes.cc support.cc \
-+	kernarium_gptfdisk.cc
++	linuxed_gptfdisk.cc
 +CORE_OBJECTS = $(CORE_SOURCES:%.cc=$(BUILD_DIR)/%.o)
 +
 +# The file-only core, its language standard and its hidden symbols are what
 +# this library is, so they apply on top of whatever flags the caller passes.
-+override CPPFLAGS += -DKERNARIUM_GPTFDISK_FILE_ONLY=1
++override CPPFLAGS += -DLINUXED_GPTFDISK_FILE_ONLY=1
 +override CXXFLAGS += -fvisibility=hidden -std=c++17
 +
 +.PHONY: all clean
@@ -55,7 +55,7 @@ index 0000000000000000000000000000000000000000..108aeeed7fc70084ac99d28ff7b2519f
 +clean:
 +	rm -rf $(BUILD_DIR)
 diff --git a/diskio-unix.cc b/diskio-unix.cc
-index 0897c56805dc3cd06da01d8885a7050870b03793..42b7b6e742bf38e776c30702025208cf4123fc1e 100644
+index 0897c56805dc3cd06da01d8885a7050870b03793..8aa0808788262b23a7e8444903b7061e8fdf1b78 100644
 --- a/diskio-unix.cc
 +++ b/diskio-unix.cc
 @@ -124,7 +124,7 @@ int DiskIO::OpenForWrite(void) {
@@ -63,7 +63,7 @@ index 0897c56805dc3cd06da01d8885a7050870b03793..42b7b6e742bf38e776c30702025208cf
     // try to open the device; may fail....
     fd = open(realFilename.c_str(), O_WRONLY | O_CREAT, S_IWUSR | S_IRUSR | S_IRGRP | S_IROTH);
 -#ifdef __APPLE__
-+#if defined(__APPLE__) && !defined(KERNARIUM_GPTFDISK_FILE_ONLY)
++#if defined(__APPLE__) && !defined(LINUXED_GPTFDISK_FILE_ONLY)
     // MacOS X requires a shared lock under some circumstances....
     if (fd < 0) {
        cerr << "Warning: Devices opened with shared lock will not have their\npartition table automatically reloaded!\n";
@@ -72,7 +72,7 @@ index 0897c56805dc3cd06da01d8885a7050870b03793..42b7b6e742bf38e776c30702025208cf
  
     if (isOpen) {
 -#ifdef __APPLE__
-+#ifdef KERNARIUM_GPTFDISK_FILE_ONLY
++#ifdef LINUXED_GPTFDISK_FILE_ONLY
 +      err = 0;
 +      blockSize = SECTOR_SIZE;
 +#elif defined(__APPLE__)
@@ -85,7 +85,7 @@ index 0897c56805dc3cd06da01d8885a7050870b03793..42b7b6e742bf38e776c30702025208cf
  int DiskIO::DiskSync(void) {
 -   int i, retval = 0, platformFound = 0;
 +   int retval = 0, platformFound = 0;
-+#ifndef KERNARIUM_GPTFDISK_FILE_ONLY
++#ifndef LINUXED_GPTFDISK_FILE_ONLY
 +   int i;
 +#endif
  
@@ -95,7 +95,7 @@ index 0897c56805dc3cd06da01d8885a7050870b03793..42b7b6e742bf38e776c30702025208cf
     } // if
  
     if (isOpen) {
-+#ifdef KERNARIUM_GPTFDISK_FILE_ONLY
++#ifdef LINUXED_GPTFDISK_FILE_ONLY
 +      retval = (fsync(fd) == 0);
 +      platformFound++;
 +#else
@@ -114,7 +114,7 @@ index 0897c56805dc3cd06da01d8885a7050870b03793..42b7b6e742bf38e776c30702025208cf
     } // if
  
     if (isOpen) {
-+#ifdef KERNARIUM_GPTFDISK_FILE_ONLY
++#ifdef LINUXED_GPTFDISK_FILE_ONLY
 +      *err = fstat64(fd, &st);
 +      if (*err == 0) {
 +         bytes = st.st_size;
@@ -149,15 +149,15 @@ index d3e4fd567dbfa3e380ef03a5478d7dfcdf50b407..bdef7501c9d92a9a77bc9d2582dfecf0
             "%02X%02X%02X%02X-%02X%02X-%02X%02X-%02X%02X-%02X%02X%02X%02X%02X%02X",
             uuidData[3], uuidData[2], uuidData[1], uuidData[0], uuidData[5],
             uuidData[4], uuidData[7], uuidData[6], uuidData[8], uuidData[9],
-diff --git a/kernarium_gptfdisk.cc b/kernarium_gptfdisk.cc
+diff --git a/linuxed_gptfdisk.cc b/linuxed_gptfdisk.cc
 new file mode 100644
-index 0000000000000000000000000000000000000000..9a66d6bb7e8f23ac569a2e9afaf7f3177b37fdcf
+index 0000000000000000000000000000000000000000..f8678a0efaff1ca0493358c44ffc1620de8c30ec
 --- /dev/null
-+++ b/kernarium_gptfdisk.cc
++++ b/linuxed_gptfdisk.cc
 @@ -0,0 +1,231 @@
 +/* SPDX-License-Identifier: GPL-2.0-or-later */
 +
-+#include "kernarium_gptfdisk.h"
++#include "linuxed_gptfdisk.h"
 +
 +#include <cctype>
 +#include <exception>
@@ -193,7 +193,7 @@ index 0000000000000000000000000000000000000000..9a66d6bb7e8f23ac569a2e9afaf7f317
 +};
 +
 +// GPTData's operator[] is const, so a partition's end is set here.
-+class KernariumGPTData : public GPTData {
++class LinuxedGPTData : public GPTData {
 +public:
 +   void SetPartitionLastLBA(uint32_t index, uint64_t lastLBA) {
 +      partitions[index].SetLastLBA(lastLBA);
@@ -237,34 +237,34 @@ index 0000000000000000000000000000000000000000..9a66d6bb7e8f23ac569a2e9afaf7f317
 +   SetError(error, errorSize, message.c_str());
 +}
 +
-+int Load(const char *path, uint32_t partitionNumber, KernariumGPTData *gpt,
++int Load(const char *path, uint32_t partitionNumber, LinuxedGPTData *gpt,
 +         uint32_t *index, char *error, size_t errorSize) {
 +   if ((path == NULL) || (path[0] == '\0') || (gpt == NULL) ||
 +       (index == NULL) || (partitionNumber == 0)) {
 +      SetError(error, errorSize, "invalid GPT fdisk argument");
-+      return KERNARIUM_GPTFDISK_INVALID_ARGUMENT;
++      return LINUXED_GPTFDISK_INVALID_ARGUMENT;
 +   }
 +
 +   gpt->BeQuiet(1);
 +   if (!gpt->LoadPartitions(path)) {
 +      SetError(error, errorSize, "could not read disk image");
-+      return KERNARIUM_GPTFDISK_IO_ERROR;
++      return LINUXED_GPTFDISK_IO_ERROR;
 +   }
 +   if (gpt->WhichWasUsed() != use_gpt) {
 +      SetError(error, errorSize, "disk image does not contain a usable GPT");
-+      return KERNARIUM_GPTFDISK_INVALID_GPT;
++      return LINUXED_GPTFDISK_INVALID_GPT;
 +   }
 +
 +   *index = partitionNumber - 1;
 +   if (!gpt->ValidPartNum(*index) || !gpt->IsUsedPartNum(*index)) {
 +      SetError(error, errorSize, "requested GPT partition does not exist");
-+      return KERNARIUM_GPTFDISK_INVALID_PARTITION;
++      return LINUXED_GPTFDISK_INVALID_PARTITION;
 +   }
-+   return KERNARIUM_GPTFDISK_OK;
++   return LINUXED_GPTFDISK_OK;
 +}
 +
-+void FillInfo(KernariumGPTData &gpt, uint32_t index,
-+              kernarium_gptfdisk_partition_info *info) {
++void FillInfo(LinuxedGPTData &gpt, uint32_t index,
++              linuxed_gptfdisk_partition_info *info) {
 +   if (info == NULL)
 +      return;
 +   info->disk_lbas = gpt.GetSecondHeaderLBA() + 1;
@@ -275,26 +275,26 @@ index 0000000000000000000000000000000000000000..9a66d6bb7e8f23ac569a2e9afaf7f317
 +}
 +
 +int ReadPartition(const char *path, uint32_t partitionNumber,
-+                  kernarium_gptfdisk_partition_info *info,
++                  linuxed_gptfdisk_partition_info *info,
 +                  char *error, size_t errorSize) {
-+   KernariumGPTData gpt;
++   LinuxedGPTData gpt;
 +   uint32_t index = 0;
 +   const int result = Load(path, partitionNumber, &gpt, &index, error, errorSize);
-+   if (result != KERNARIUM_GPTFDISK_OK)
++   if (result != LINUXED_GPTFDISK_OK)
 +      return result;
 +   FillInfo(gpt, index, info);
 +   SetError(error, errorSize, "");
-+   return KERNARIUM_GPTFDISK_OK;
++   return LINUXED_GPTFDISK_OK;
 +}
 +
 +int GrowPartition(const char *path, uint32_t partitionNumber,
 +                  uint64_t trailingFreeBytes,
-+                  kernarium_gptfdisk_partition_info *info,
++                  linuxed_gptfdisk_partition_info *info,
 +                  char *error, size_t errorSize) {
-+   KernariumGPTData gpt;
++   LinuxedGPTData gpt;
 +   uint32_t index = 0;
 +   int result = Load(path, partitionNumber, &gpt, &index, error, errorSize);
-+   if (result != KERNARIUM_GPTFDISK_OK)
++   if (result != LINUXED_GPTFDISK_OK)
 +      return result;
 +
 +   const uint32_t blockSize = gpt.GetBlockSize();
@@ -302,7 +302,7 @@ index 0000000000000000000000000000000000000000..9a66d6bb7e8f23ac569a2e9afaf7f317
 +       ((trailingFreeBytes % blockSize) != 0)) {
 +      SetError(error, errorSize,
 +               "trailing free space must be a positive multiple of the block size");
-+      return KERNARIUM_GPTFDISK_INVALID_ARGUMENT;
++      return LINUXED_GPTFDISK_INVALID_ARGUMENT;
 +   }
 +
 +   const uint64_t oldBackupHeader = gpt.GetSecondHeaderLBA();
@@ -310,17 +310,17 @@ index 0000000000000000000000000000000000000000..9a66d6bb7e8f23ac569a2e9afaf7f317
 +   const uint64_t trailingLBAs = trailingFreeBytes / blockSize;
 +   if (gpt.GetSecondHeaderLBA() <= trailingLBAs) {
 +      SetError(error, errorSize, "disk image is too small for the requested GPT layout");
-+      return KERNARIUM_GPTFDISK_INVALID_ARGUMENT;
++      return LINUXED_GPTFDISK_INVALID_ARGUMENT;
 +   }
 +   const uint64_t desiredLastLBA = gpt.GetSecondHeaderLBA() - trailingLBAs;
 +   const uint64_t currentLastLBA = gpt[index].GetLastLBA();
 +   if (desiredLastLBA < currentLastLBA) {
 +      SetError(error, errorSize, "GPT partition resizing would shrink existing data");
-+      return KERNARIUM_GPTFDISK_WOULD_SHRINK;
++      return LINUXED_GPTFDISK_WOULD_SHRINK;
 +   }
 +   if (desiredLastLBA > gpt.GetLastUsableLBA()) {
 +      SetError(error, errorSize, "requested partition end exceeds usable GPT space");
-+      return KERNARIUM_GPTFDISK_INVALID_ARGUMENT;
++      return LINUXED_GPTFDISK_INVALID_ARGUMENT;
 +   }
 +
 +   for (uint32_t other = 0; other < gpt.GetNumParts(); other++) {
@@ -329,7 +329,7 @@ index 0000000000000000000000000000000000000000..9a66d6bb7e8f23ac569a2e9afaf7f317
 +      if ((gpt[other].GetFirstLBA() <= desiredLastLBA) &&
 +          (gpt[other].GetLastLBA() >= gpt[index].GetFirstLBA())) {
 +         SetError(error, errorSize, "growing partition would overlap another GPT partition");
-+         return KERNARIUM_GPTFDISK_OVERLAP;
++         return LINUXED_GPTFDISK_OVERLAP;
 +      }
 +   }
 +
@@ -341,7 +341,7 @@ index 0000000000000000000000000000000000000000..9a66d6bb7e8f23ac569a2e9afaf7f317
 +       (oldBackupHeader != gpt.GetSecondHeaderLBA())) {
 +      if (!gpt.SaveGPTData(1)) {
 +         SetError(error, errorSize, "could not write resized GPT");
-+         return KERNARIUM_GPTFDISK_WRITE_ERROR;
++         return LINUXED_GPTFDISK_WRITE_ERROR;
 +      }
 +   }
 +
@@ -350,12 +350,12 @@ index 0000000000000000000000000000000000000000..9a66d6bb7e8f23ac569a2e9afaf7f317
 +
 +} // namespace
 +
-+int kernarium_gptfdisk_read_partition(
++int linuxed_gptfdisk_read_partition(
 +   const char *path, uint32_t partition_number,
-+   kernarium_gptfdisk_partition_info *info, char *error, size_t error_size) {
++   linuxed_gptfdisk_partition_info *info, char *error, size_t error_size) {
 +   std::lock_guard<std::mutex> lock(gptfdiskMutex);
 +   ScopedOutputCapture capture;
-+   int result = KERNARIUM_GPTFDISK_INTERNAL_ERROR;
++   int result = LINUXED_GPTFDISK_INTERNAL_ERROR;
 +   try {
 +      result = ReadPartition(path, partition_number, info, error, error_size);
 +   } catch (const std::exception &exception) {
@@ -363,17 +363,17 @@ index 0000000000000000000000000000000000000000..9a66d6bb7e8f23ac569a2e9afaf7f317
 +   } catch (...) {
 +      SetError(error, error_size, "unexpected GPT fdisk failure");
 +   }
-+   if (result != KERNARIUM_GPTFDISK_OK)
++   if (result != LINUXED_GPTFDISK_OK)
 +      AppendDiagnostics(error, error_size, capture.Text());
 +   return result;
 +}
 +
-+int kernarium_gptfdisk_grow_partition_to_fill(
++int linuxed_gptfdisk_grow_partition_to_fill(
 +   const char *path, uint32_t partition_number, uint64_t trailing_free_bytes,
-+   kernarium_gptfdisk_partition_info *info, char *error, size_t error_size) {
++   linuxed_gptfdisk_partition_info *info, char *error, size_t error_size) {
 +   std::lock_guard<std::mutex> lock(gptfdiskMutex);
 +   ScopedOutputCapture capture;
-+   int result = KERNARIUM_GPTFDISK_INTERNAL_ERROR;
++   int result = LINUXED_GPTFDISK_INTERNAL_ERROR;
 +   try {
 +      result = GrowPartition(path, partition_number, trailing_free_bytes, info,
 +                             error, error_size);
@@ -382,20 +382,20 @@ index 0000000000000000000000000000000000000000..9a66d6bb7e8f23ac569a2e9afaf7f317
 +   } catch (...) {
 +      SetError(error, error_size, "unexpected GPT fdisk failure");
 +   }
-+   if (result != KERNARIUM_GPTFDISK_OK)
++   if (result != LINUXED_GPTFDISK_OK)
 +      AppendDiagnostics(error, error_size, capture.Text());
 +   return result;
 +}
-diff --git a/kernarium_gptfdisk.h b/kernarium_gptfdisk.h
+diff --git a/linuxed_gptfdisk.h b/linuxed_gptfdisk.h
 new file mode 100644
-index 0000000000000000000000000000000000000000..ac1cd2fa79c7b9bec0fe220fe0e0b6d18d42cc08
+index 0000000000000000000000000000000000000000..01991524da3005e507488772d517123258cb7c8b
 --- /dev/null
-+++ b/kernarium_gptfdisk.h
++++ b/linuxed_gptfdisk.h
 @@ -0,0 +1,57 @@
 +/* SPDX-License-Identifier: GPL-2.0-or-later */
 +
-+#ifndef KERNARIUM_GPTFDISK_H
-+#define KERNARIUM_GPTFDISK_H
++#ifndef LINUXED_GPTFDISK_H
++#define LINUXED_GPTFDISK_H
 +
 +#include <stddef.h>
 +#include <stdint.h>
@@ -405,42 +405,42 @@ index 0000000000000000000000000000000000000000..ac1cd2fa79c7b9bec0fe220fe0e0b6d1
 +#endif
 +
 +enum {
-+   KERNARIUM_GPTFDISK_OK = 0,
-+   KERNARIUM_GPTFDISK_INVALID_ARGUMENT = 1,
-+   KERNARIUM_GPTFDISK_IO_ERROR = 2,
-+   KERNARIUM_GPTFDISK_INVALID_GPT = 3,
-+   KERNARIUM_GPTFDISK_INVALID_PARTITION = 4,
-+   KERNARIUM_GPTFDISK_WOULD_SHRINK = 5,
-+   KERNARIUM_GPTFDISK_OVERLAP = 6,
-+   KERNARIUM_GPTFDISK_WRITE_ERROR = 7,
-+   KERNARIUM_GPTFDISK_INTERNAL_ERROR = 8,
++   LINUXED_GPTFDISK_OK = 0,
++   LINUXED_GPTFDISK_INVALID_ARGUMENT = 1,
++   LINUXED_GPTFDISK_IO_ERROR = 2,
++   LINUXED_GPTFDISK_INVALID_GPT = 3,
++   LINUXED_GPTFDISK_INVALID_PARTITION = 4,
++   LINUXED_GPTFDISK_WOULD_SHRINK = 5,
++   LINUXED_GPTFDISK_OVERLAP = 6,
++   LINUXED_GPTFDISK_WRITE_ERROR = 7,
++   LINUXED_GPTFDISK_INTERNAL_ERROR = 8,
 +};
 +
-+typedef struct kernarium_gptfdisk_partition_info {
++typedef struct linuxed_gptfdisk_partition_info {
 +   uint64_t disk_lbas;
 +   uint64_t first_lba;
 +   uint64_t last_lba;
 +   uint64_t backup_header_lba;
 +   uint32_t block_size;
-+} kernarium_gptfdisk_partition_info;
++} linuxed_gptfdisk_partition_info;
 +
 +/*
 + * Calls are serialized. While one runs, std::cout and std::cerr of the whole
 + * process are redirected, because the GPT fdisk core reports its reasons only
 + * there; a failed call appends that output to the message in error.
 + */
-+int kernarium_gptfdisk_read_partition(
++int linuxed_gptfdisk_read_partition(
 +   const char *path,
 +   uint32_t partition_number,
-+   kernarium_gptfdisk_partition_info *info,
++   linuxed_gptfdisk_partition_info *info,
 +   char *error,
 +   size_t error_size);
 +
-+int kernarium_gptfdisk_grow_partition_to_fill(
++int linuxed_gptfdisk_grow_partition_to_fill(
 +   const char *path,
 +   uint32_t partition_number,
 +   uint64_t trailing_free_bytes,
-+   kernarium_gptfdisk_partition_info *info,
++   linuxed_gptfdisk_partition_info *info,
 +   char *error,
 +   size_t error_size);
 +
@@ -450,7 +450,7 @@ index 0000000000000000000000000000000000000000..ac1cd2fa79c7b9bec0fe220fe0e0b6d1
 +
 +#endif
 diff --git a/support.h b/support.h
-index fd1cd32e9a2112999b62f305e75bcd07b823e5bd..e0c0ff0a59215037d3b3c19b9ec5843733bc05a2 100644
+index fd1cd32e9a2112999b62f305e75bcd07b823e5bd..d24bdaf849b4700eda83778952febd9fd011d285 100644
 --- a/support.h
 +++ b/support.h
 @@ -10,12 +10,17 @@
@@ -459,13 +459,13 @@ index fd1cd32e9a2112999b62f305e75bcd07b823e5bd..e0c0ff0a59215037d3b3c19b9ec58437
  
 -#if defined (__FreeBSD__) || defined (__FreeBSD_kernel__) || defined (__APPLE__)
 +#if (defined (__FreeBSD__) || defined (__FreeBSD_kernel__) || defined (__APPLE__)) && \
-+    !defined(KERNARIUM_GPTFDISK_FILE_ONLY)
++    !defined(LINUXED_GPTFDISK_FILE_ONLY)
  // Darwin (Mac OS) & FreeBSD: disk IOCTLs are different, and there is no lseek64
  #include <sys/disk.h>
  #define lseek64 lseek
  #endif
  
-+#if defined(KERNARIUM_GPTFDISK_FILE_ONLY) && defined(__APPLE__)
++#if defined(LINUXED_GPTFDISK_FILE_ONLY) && defined(__APPLE__)
 +#define lseek64 lseek
 +#endif
 +
