@@ -738,7 +738,7 @@ build_debian_desktop()
 	mount_chroot_proc "$root"
 	prepare_debian_base "$root"
 	install_debian_base "$root"
-	configure_debian_base "$root" "debian-$session" root
+	configure_debian_base "$root" linuxed root
 	as_root chroot "$root" /usr/bin/env DEBIAN_FRONTEND=noninteractive \
 		apt-get install -y $recommends $packages
 	# libpam-systemd registers each login with logind, which gives a

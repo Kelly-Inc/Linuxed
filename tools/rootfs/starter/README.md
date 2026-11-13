@@ -19,15 +19,15 @@ archives and three raw GPT disks:
 The opt-in `debian-13-xfce`, `debian-13-phosh` and `debian-13-plasma-mobile`
 products, `debian-13-<session>.erofs`, are not disks: each is a bare LZMA EROFS image
 that Linuxed boots like the KDE image, on Debian's Mesa so that the session
-renders through Virgl on the host GPU. Each has `uml` logged in automatically
+renders through Virgl on the host GPU. Each is host `linuxed` with `user` logged in automatically
 (by LightDM into XFCE, greetd into Phosh, or SDDM into Plasma Mobile), a root without a password and
-passwordless `sudo` for `uml`, sshd for the app's loopback port 2222, the
+passwordless `sudo` for `user`, sshd for the app's loopback port 2222, the
 NetSurf browser, `gpucheck`, a fastfetch that names the host Apple device
 ([`linuxed-host`](linuxed-host)), a root shell on the `ttyS0` console,
 and the Linuxed input rules ([`debian-desktop-setup`](debian-desktop-setup)).
 A `wallpaper.png` beside the setup script, when present, becomes the
 session's default backdrop. The images mask background work a phone guest has
-no use for, turn off animations, indexers and XFCE's compositor, and keep the
+no use for, turn off animations and indexers, and keep the
 journal in RAM.
 
 An opt-in fourth disk, `debian-13-minimal-armhf.img`, is the 32-bit Arm twin of

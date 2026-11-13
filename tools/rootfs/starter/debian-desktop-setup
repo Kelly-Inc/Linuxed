@@ -24,25 +24,25 @@ ACTION=="add|change", SUBSYSTEM=="input", KERNEL=="event*", ATTRS{name}=="Darwin
 RULES
 chmod 0644 /etc/udev/rules.d/59-linuxed-input.rules
 
-useradd -m -s /bin/bash uml
-passwd -d uml
+useradd -m -s /bin/bash user
+passwd -d user
 # The guest is a single-owner sandbox inside the app, so root takes no
-# password: su and sudo reach it from uml. sshd keeps its defaults, no root
+# password: su and sudo reach it from user. sshd keeps its defaults, no root
 # password login and no empty passwords, so the shell the app forwards on
-# loopback port 2222 opens once uml has a password.
+# loopback port 2222 opens once user has a password.
 passwd -d root
-printf '%s\n' 'uml ALL=(ALL:ALL) NOPASSWD: ALL' > /etc/sudoers.d/uml
-chmod 0440 /etc/sudoers.d/uml
+printf '%s\n' 'user ALL=(ALL:ALL) NOPASSWD: ALL' > /etc/sudoers.d/user
+chmod 0440 /etc/sudoers.d/user
 for group in sudo video input audio render; do
 	if getent group "$group" >/dev/null; then
-		usermod -a -G "$group" uml
+		usermod -a -G "$group" user
 	fi
 done
 
 case "$session" in
 xfce)
 	install -d -m 0755 /etc/lightdm/lightdm.conf.d
-	printf '%s\n' '[Seat:*]' 'autologin-user=uml' 'autologin-session=xfce' \
+	printf '%s\n' '[Seat:*]' 'autologin-user=user' 'autologin-session=xfce' \
 		'user-session=xfce' > /etc/lightdm/lightdm.conf.d/50-linuxed.conf
 	[ -f /usr/share/xsessions/xfce.desktop ] ||
 		fail "the image has no XFCE session"
@@ -55,7 +55,7 @@ xfce)
 	display_manager=lightdm
 	;;
 phosh)
-	# greetd starts Phosh as uml at boot and again after a logout, so the
+	# greetd starts Phosh as user at boot and again after a logout, so the
 	# image needs no greeter. Phosh's own development unit would race it.
 	[ -x /usr/bin/phosh-session ] || fail "the image has no Phosh session"
 	systemctl disable phosh.service 2>/dev/null || true
@@ -67,13 +67,13 @@ vt = "next"
 
 [default_session]
 command = "phosh-session"
-user = "uml"
+user = "user"
 
 [initial_session]
 command = "phosh-session"
-user = "uml"
+user = "user"
 CONFIG
-	# uml has no password, so a lock screen could never be unlocked.
+	# user has no password, so a lock screen could never be unlocked.
 	cat > /usr/share/glib-2.0/schemas/80-kellylinux-lock.gschema.override <<'OVERRIDE'
 [org.gnome.desktop.screensaver]
 lock-enabled=false
@@ -90,9 +90,9 @@ plasma-mobile)
 	[ -f /usr/share/wayland-sessions/plasma-mobile.desktop ] ||
 		fail "the image has no Plasma Mobile session"
 	install -d -m 0755 /etc/sddm.conf.d
-	printf '%s\n' '[Autologin]' 'User=uml' 'Session=plasma-mobile' \
+	printf '%s\n' '[Autologin]' 'User=user' 'Session=plasma-mobile' \
 		'Relogin=true' > /etc/sddm.conf.d/50-linuxed.conf
-	# uml has no password, so a lock screen could never be unlocked.
+	# user has no password, so a lock screen could never be unlocked.
 	install -d -m 0755 /etc/xdg
 	printf '%s\n' '[Daemon]' 'Autolock=false' 'LockOnResume=false' \
 		> /etc/xdg/kscreenlockerrc
