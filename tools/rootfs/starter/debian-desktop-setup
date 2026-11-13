@@ -171,6 +171,23 @@ cat > /etc/xdg/fastfetch/config.jsonc <<'CONFIG'
 }
 CONFIG
 
+# Browsers, when installed, skip JavaScript compilation: code a guest
+# compiles at run time is the emulator's slowest path, so V8's and
+# SpiderMonkey's interpreters load pages sooner here. Chromium also renders
+# on the GPU even where it would distrust the virtual one, scrolls without
+# animation, and keeps few renderer processes for the guest's few vCPUs.
+install -d -m 0755 /etc/chromium.d /etc/firefox-esr
+cat > /etc/chromium.d/linuxed-performance <<'FLAGS'
+export CHROMIUM_FLAGS="$CHROMIUM_FLAGS --js-flags=--jitless --ignore-gpu-blocklist --enable-gpu-rasterization --disable-smooth-scrolling --renderer-process-limit=2"
+FLAGS
+cat > /etc/firefox-esr/linuxed-performance.js <<'PREFS'
+pref("javascript.options.baselinejit", false);
+pref("javascript.options.ion", false);
+pref("javascript.options.wasm_baselinejit", false);
+pref("javascript.options.wasm_optimizingjit", false);
+pref("general.smoothScroll", false);
+PREFS
+
 # A wallpaper the build supplies becomes the session's default backdrop. XFCE
 # gets it in place of xfdesktop's compiled-in default, so every monitor and
 # workspace shows it without per-output keys; Phosh reads GNOME's setting,
