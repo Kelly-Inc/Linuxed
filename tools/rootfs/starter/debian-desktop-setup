@@ -107,11 +107,12 @@ ztmetro)
 	[ -x /usr/local/bin/ztmetro ] || fail "the image has no ztMETRO shell"
 	# The guest keyboard has Back and Home keys, which ztMETRO takes for a
 	# phone's own buttons and hides its navigation bar for; there are none.
-	for home in /etc/skel /home/user; do
+	user_home=$(getent passwd user | cut -d: -f6)
+	for home in /etc/skel "$user_home"; do
 		install -d -m 0755 "$home/.config/ztmetro"
 		printf '%s\n' 'nav_bar = on' > "$home/.config/ztmetro/config"
 	done
-	chown -R user:user /home/user/.config
+	chown -R user:user "$user_home/.config"
 	# ztOS's own wallpapers are Microsoft's and Nokia's and are not shipped;
 	# Linuxed's is the start and lock screen and the picker's one set.
 	if [ -f /tmp/wallpaper.png ]; then
