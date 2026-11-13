@@ -799,6 +799,7 @@ build_debian_desktop()
 			"$sources_dir/libdrm-$LIBDRM_VERSION.tar.xz" \
 			"$sources_dir/libxkbcommon-$XKBCOMMON_VERSION.tar.gz" "$root/tmp/src/"
 		as_root install -m 0755 "$SCRIPT_DIR/ztmetro-build" "$root/tmp/ztmetro-build"
+		as_root install -m 0644 "$SCRIPT_DIR/linuxed-info.h" "$root/tmp/linuxed-info.h"
 		as_root chroot "$root" /bin/sh /tmp/ztmetro-build
 		as_root rm -f "$root/tmp/ztmetro-build"
 	fi

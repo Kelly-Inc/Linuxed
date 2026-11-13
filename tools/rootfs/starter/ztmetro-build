@@ -74,6 +74,42 @@ cd ztOS-*/ztmetro
 grep -q 'if (hardware_nav_keys()) {' ztmetro.c ||
 	fail "ztmetro.c no longer decides the bar from hardware keys"
 sed -i 's/if (hardware_nav_keys()) {/if (false \&\& hardware_nav_keys()) {/' ztmetro.c
+# The apps were written on a Galaxy S9: they name its chip and GPU, and read
+# its battery and charger. A Linuxed guest names the iPhone it runs on
+# (linuxed-info.h) and has the battery and linuxed-mains supplies.
+replace()
+{
+	file=$1
+	shift
+	for edit in "$@"; do
+		grep -qF -- "${edit%%|*}" "$file" || fail "$file no longer has: ${edit%%|*}"
+	done
+	for edit in "$@"; do
+		from=${edit%%|*} to=${edit#*|}
+		FROM=$from TO=$to perl -0pi -e 's/\Q$ENV{FROM}\E/$ENV{TO}/g' "$file"
+	done
+}
+cp /tmp/linuxed-info.h settings/linuxed-info.h
+cp /tmp/linuxed-info.h devices/linuxed-info.h
+replace settings/ztsettings.c \
+	'#include <errno.h>|#include <errno.h>
+#include "linuxed-info.h"' \
+	'"Exynos 9810 (8 cores), %s", app.cpu_gov|"%s, %s", linuxed_cpu(), app.cpu_gov' \
+	'"Mali-G72 MP18 (%s), 60 FPS", app.gpu_gov|"%s (%s), 60 FPS", linuxed_gpu(), app.gpu_gov' \
+	'"Samsung Galaxy S9, ztOS Mobile"|linuxed_about()' \
+	'"Samsung Exynos 9810 (10nm LPP)"|linuxed_cpu()' \
+	'"ARM Mali-G72 MP18 (Bifrost)"|linuxed_gpu()' \
+	'"Samsung Galaxy S9 (SM-G960N starlte)"|linuxed_host()' \
+	'Lumia Cyan/Background_01.jpg|Linuxed/Background_01.png' \
+	'Lumia Cyan lock screens/Wallpaper_01.jpg|Linuxed/Lock_01.png'
+replace ztmetro.c \
+	'Lumia Cyan/Background_01.jpg|Linuxed/Background_01.png' \
+	'Lumia Cyan lock screens/Wallpaper_01.jpg|Linuxed/Lock_01.png'
+replace devices/ztdevices.c '"Graphics (Mali-G72)"|"Graphics (Apple GPU)"'
+for file in core/ztos-hw.h settings/ztsettings.c power/ztpower.c devices/ztdevices.c; do
+	sed -i 's#power_supply/max170xx_battery#power_supply/battery#g;
+		s#power_supply/max77705-charger#power_supply/linuxed-mains#g' "$file"
+done
 programs="ztmetro apps/ztapps settings/ztsettings files/ztfiles
 	devices/ztdevices power/ztpower sound/ztsound splash/ztos-splash
 	sounds/ztos-sounds auth/ztos-polkit-agent"

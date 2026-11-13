@@ -112,6 +112,15 @@ ztmetro)
 		printf '%s\n' 'nav_bar = on' > "$home/.config/ztmetro/config"
 	done
 	chown -R user:user /home/user/.config
+	# ztOS's own wallpapers are Microsoft's and Nokia's and are not shipped;
+	# Linuxed's is the start and lock screen and the picker's one set.
+	if [ -f /tmp/wallpaper.png ]; then
+		walls=/usr/local/share/backgrounds/ztos
+		for file in Linuxed/Background_01.png Linuxed/Lock_01.png \
+			.thumbs/Linuxed/Background_01.png .thumbs/Linuxed/Lock_01.png; do
+			install -D -m 0644 /tmp/wallpaper.png "$walls/$file"
+		done
+	fi
 	install -d -m 0755 /etc/greetd
 	cat > /etc/greetd/config.toml <<'CONFIG'
 [terminal]
