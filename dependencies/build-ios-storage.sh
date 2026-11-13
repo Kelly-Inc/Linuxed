@@ -37,7 +37,7 @@ build_library()
 
 install_headers()
 {
-	cp "$SOURCE/linuxed_gptfdisk.h" "$1/GPTFDisk.h"
+	cp "$SOURCE/kernarium_gptfdisk.h" "$1/GPTFDisk.h"
 }
 
 record_provenance()

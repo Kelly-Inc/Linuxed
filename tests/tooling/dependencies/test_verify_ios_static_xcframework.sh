@@ -75,15 +75,15 @@ copy_fixture()
 
 command -v xcrun >/dev/null 2>&1 || fail "xcrun is required"
 cat >"$TEST_ROOT/gptfdisk.c" <<'EOF'
-int linuxed_gptfdisk_read_partition(void) { return 0; }
-int linuxed_gptfdisk_grow_partition_to_fill(void) { return 0; }
+int kernarium_gptfdisk_read_partition(void) { return 0; }
+int kernarium_gptfdisk_grow_partition_to_fill(void) { return 0; }
 EOF
 cat >"$TEST_ROOT/gptfdisk-reader.c" <<'EOF'
-int linuxed_gptfdisk_read_partition(void) { return 0; }
+int kernarium_gptfdisk_read_partition(void) { return 0; }
 EOF
 cat >"$TEST_ROOT/gptfdisk-cli.c" <<'EOF'
-int linuxed_gptfdisk_read_partition(void) { return 0; }
-int linuxed_gptfdisk_grow_partition_to_fill(void) { return 0; }
+int kernarium_gptfdisk_read_partition(void) { return 0; }
+int kernarium_gptfdisk_grow_partition_to_fill(void) { return 0; }
 int main(void) { return 0; }
 EOF
 ZSTD_SYMBOLS="ZSTD_createDStream ZSTD_DStreamInSize ZSTD_DStreamOutSize
@@ -143,7 +143,7 @@ CASE="$TEST_ROOT/missing-symbol"
 copy_fixture "$STORAGE" "$CASE"
 slice_binary "$CASE/$SIMULATOR_GPTFDISK/GPTFDisk" ios-arm64-simulator \
 	"$TEST_ROOT/gptfdisk-reader.c"
-expect_cmake_diagnostic "is missing linuxed_gptfdisk_grow_partition_to_fill" \
+expect_cmake_diagnostic "is missing kernarium_gptfdisk_grow_partition_to_fill" \
 	verify_storage "$CASE"
 
 CASE="$TEST_ROOT/command-line-front-end"

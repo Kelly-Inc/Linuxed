@@ -8,8 +8,8 @@ uml_verify_ios_static_xcframework(
     FRAMEWORK GPTFDisk
     HEADERS GPTFDisk.h
     SYMBOLS
-        linuxed_gptfdisk_read_partition
-        linuxed_gptfdisk_grow_partition_to_fill
+        kernarium_gptfdisk_read_partition
+        kernarium_gptfdisk_grow_partition_to_fill
     FORBIDDEN
         "(^|[\n ])_main([\n ]|$)"
         "GPTData(TextUI|CL|Curses)"
