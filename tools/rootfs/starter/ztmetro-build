@@ -69,6 +69,11 @@ meson_build wlroots wlroots-*/ -Dexamples=false -Dxwayland=disabled \
 
 tar -xf ztos-*.tar.gz
 cd ztOS-*/ztmetro
+# An iPhone has no Back or Home buttons, though the guest keyboard reports
+# those keys: the shell keeps its navigation bar whatever keys it finds.
+grep -q 'if (hardware_nav_keys()) {' ztmetro.c ||
+	fail "ztmetro.c no longer decides the bar from hardware keys"
+sed -i 's/if (hardware_nav_keys()) {/if (false \&\& hardware_nav_keys()) {/' ztmetro.c
 programs="ztmetro apps/ztapps settings/ztsettings files/ztfiles
 	devices/ztdevices power/ztpower sound/ztsound splash/ztos-splash
 	sounds/ztos-sounds auth/ztos-polkit-agent"
