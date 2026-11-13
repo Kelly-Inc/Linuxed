@@ -46,9 +46,10 @@ xfce)
 		'user-session=xfce' > /etc/lightdm/lightdm.conf.d/50-kernarium.conf
 	[ -f /usr/share/xsessions/xfce.desktop ] ||
 		fail "the image has no XFCE session"
-	# The compositor redraws every frame on the emulated CPU.
+	# The compositor keeps each window's contents, so a moved window leaves
+	# no trail while the windows it uncovers repaint on the emulated CPU.
 	if [ -f /usr/share/xfwm4/defaults ]; then
-		sed -i 's/^use_compositing=.*/use_compositing=false/' \
+		sed -i 's/^use_compositing=.*/use_compositing=true/' \
 			/usr/share/xfwm4/defaults
 	fi
 	display_manager=lightdm
