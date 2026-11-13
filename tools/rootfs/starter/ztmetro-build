@@ -89,17 +89,19 @@ done
 
 # Keep every package that a built program loads a library from, then drop
 # the build tools: the programs live in /usr/local, which dpkg does not see.
+# ldd names libraries by /lib paths, which dpkg knows by their /usr/lib ones.
 keep=$(for binary in "$prefix"/bin/* "$prefix"/lib/aarch64-linux-gnu/*.so*; do
 	[ -f "$binary" ] && ldd "$binary" 2>/dev/null || true
-done | awk '/=> \//{print $3}' | sort -u | grep -v "^$prefix/" |
-	xargs -r dpkg -S 2>/dev/null | cut -d: -f1 | sort -u)
+done | awk '/=> \//{print $3}' | xargs -r readlink -f | sort -u |
+	grep -v "^$prefix/" | xargs -r dpkg -S 2>/dev/null | cut -d: -f1 | sort -u)
 # shellcheck disable=SC2086
 [ -z "$keep" ] || apt-mark manual $keep >/dev/null
 # shellcheck disable=SC2086
 apt-mark auto $build_deps >/dev/null
 DEBIAN_FRONTEND=noninteractive apt-get autoremove --purge -y
-for binary in "$prefix"/bin/ztmetro "$prefix"/bin/ztsettings; do
-	! ldd "$binary" | grep -q 'not found' || fail "$binary lost a library"
+for binary in "$prefix"/bin/*; do
+	missing=$(ldd "$binary" 2>/dev/null | awk '/not found/{print $1}' | tr '\n' ' ')
+	[ -z "$missing" ] || fail "$binary lost $missing"
 done
 cd /
 rm -rf "$src"
