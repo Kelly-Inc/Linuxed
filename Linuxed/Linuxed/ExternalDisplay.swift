@@ -15,6 +15,9 @@ final class ExternalDisplay: ObservableObject {
 
     private var window: UIWindow?
     private weak var home: GuestDisplayViewController?
+    /// iOS 27 offers an external screen only to a view controller that asked
+    /// for one, and only while this registration lives.
+    private var accessory: UISceneAccessoryRegistration?
     private let cursorView = UIImageView(
         image: UIImage(systemName: "cursorarrow")?
             .withTintColor(.white, renderingMode: .alwaysOriginal)
@@ -47,6 +50,13 @@ final class ExternalDisplay: ObservableObject {
 
     private func adopt(_ controller: GuestDisplayViewController) {
         home = controller
+        let configuration = UISceneConfiguration(
+            name: "External Display",
+            sessionRole: .windowExternalDisplayNonInteractive)
+        configuration.delegateClass = ExternalDisplaySceneDelegate.self
+        accessory = controller.registerSceneAccessory(
+            UISceneAccessory.externalNonInteractive(
+                sceneConfiguration: configuration))
         moveDisplay()
     }
 
