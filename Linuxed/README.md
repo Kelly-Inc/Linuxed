@@ -152,6 +152,13 @@ Linuxed attaches:
 - a Virtio-GPU Metal framebuffer; and
 - the guest's `ttyS0` stream mirrored to a terminal view.
 
+With Remote display over USB on in Settings, the runtime serves the guest's
+display over VNC on the device's loopback port 5900
+(`darwin/device/gpu/remote_display.hpp`), and a computer reaches it through
+the USB tunnel (`iproxy 5900 5900`); the viewer's keyboard and mouse drive the
+guest's VNC input devices. It takes the frame mirror, so Picture in Picture
+does not start while it runs, and the App Store runtime has none of it.
+
 A Linux guest's SLiRP link forwards the device's loopback port 2222 to the
 guest's port 22, unless `LINUXED_HOST_FORWARD` names another forward. While
 an external screen (AirPlay) is connected, the framebuffer moves to it, the
