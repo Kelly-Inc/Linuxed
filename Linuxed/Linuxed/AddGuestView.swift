@@ -26,6 +26,12 @@ struct AddGuestView: View {
     var body: some View {
         NavigationStack {
             Form {
+                Section("Linuxed images") {
+                    ForEach(GuestCatalog.images) { image in
+                        catalogRow(image)
+                    }
+                }
+
                 Section("From this device") {
                     Button("Choose a file", systemImage: "folder") {
                         importerPresented = true
@@ -102,6 +108,37 @@ struct AddGuestView: View {
                 } catch {
                     failure = error.localizedDescription
                 }
+            }
+        }
+    }
+
+    /// One published image: what it is, its size, and a button to fetch it.
+    private func catalogRow(_ image: CatalogImage) -> some View {
+        let present = FileManager.default.fileExists(
+            atPath: URL.documentsDirectory.appending(path: image.file).path
+        )
+        return HStack(alignment: .center, spacing: 12) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("\(image.name) \(image.desktop)").font(.body.weight(.semibold))
+                Text(image.tagline).font(.footnote).foregroundStyle(.secondary)
+                Text(ByteCountFormatter.string(fromByteCount: image.bytes, countStyle: .file))
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            if present {
+                Label("Added", systemImage: "checkmark.circle.fill")
+                    .labelStyle(.iconOnly)
+                    .foregroundStyle(.green)
+                    .accessibilityLabel("\(image.name) \(image.desktop) is added")
+            } else if downloads.active == image.file {
+                ProgressView(value: downloads.fraction)
+                    .frame(width: 56)
+            } else {
+                Button("Get") { downloads.start(image.url) }
+                    .buttonStyle(.bordered)
+                    .disabled(downloads.active != nil)
+                    .accessibilityLabel("Download \(image.name) \(image.desktop)")
             }
         }
     }

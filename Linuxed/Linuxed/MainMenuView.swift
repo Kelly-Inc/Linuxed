@@ -4,12 +4,16 @@ import SwiftUI
 
 /// A page of the main menu: one bootable image in Documents, or the add page.
 struct Guest: Identifiable {
+    /// The image's file in Documents, which boots it; "" for the add page.
+    var file = ""
+    /// What the page calls it: the distribution and desktop when the catalog
+    /// knows the file, its name otherwise.
     let name: String
     let tagline: String
     let specs: [(label: String, value: String)]
     /// A bundled screenshot in Resources (sources in Resources/CREDITS.md).
     var screenshot: String?
-    var id: String { name }
+    var id: String { file.isEmpty ? name : file }
     var image: Image? {
         screenshot.flatMap { UIImage(named: $0) }.map(Image.init(uiImage:))
     }
@@ -19,18 +23,37 @@ struct Guest: Identifiable {
 
     /// Every image the launcher can boot, as the settings' picker lists them.
     static func available() -> [Guest] {
-        RootfsImage.availableFilenames().map { name in
-            let url = RootfsImage.documentsDirectory.appending(path: name)
+        RootfsImage.availableFilenames().map { file in
+            let url = RootfsImage.documentsDirectory.appending(path: file)
             let bytes = (try? url.resourceValues(forKeys: [.fileSizeKey]))?.fileSize
             let changes = FileManager.default.fileExists(atPath: url.path + ".changes")
+            let size = bytes.map {
+                ByteCountFormatter.string(fromByteCount: Int64($0), countStyle: .file)
+            } ?? "unknown"
+            let state = changes ? "keeps its changes" : "not booted yet"
+            guard let entry = GuestCatalog.entry(for: file) else {
+                return Guest(
+                    file: file,
+                    name: file,
+                    tagline: changes ? "Keeps its changes between boots" : "Not booted yet",
+                    specs: [
+                        ("format", (file as NSString).pathExtension.lowercased()),
+                        ("size", size),
+                    ],
+                    screenshot: screenshot(for: file)
+                )
+            }
             return Guest(
-                name: name,
-                tagline: changes ? "Keeps its changes between boots" : "Not booted yet",
+                file: file,
+                name: "\(entry.name) \(entry.desktop)",
+                tagline: entry.tagline,
                 specs: [
-                    ("format", (name as NSString).pathExtension.lowercased()),
-                    ("size", bytes.map { ByteCountFormatter.string(fromByteCount: Int64($0), countStyle: .file) } ?? "unknown"),
+                    ("distribution", entry.name),
+                    ("desktop", entry.desktop),
+                    ("size", size),
+                    ("state", state),
                 ],
-                screenshot: screenshot(for: name)
+                screenshot: entry.screenshot
             )
         }
     }
@@ -126,7 +149,7 @@ struct MainMenuView: View {
 
     private func boot(_ guest: Guest) {
         var configuration = EmulatorConfiguration.load()
-        configuration.rootfsFilename = guest.name
+        configuration.rootfsFilename = guest.file
         configuration.save()
         start()
     }

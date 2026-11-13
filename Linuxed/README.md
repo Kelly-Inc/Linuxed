@@ -80,6 +80,9 @@ the one the settings name, or, while they name none, the accepted KDE desktop
 image `kde-20260929-r2.erofs`
 ([`tools/rootfs/desktop`](../tools/rootfs/desktop/README.md)). A name the
 settings already store is kept, and every image in Documents stays selectable.
+Add a guest also offers the images CI publishes in this repository's
+releases (`GuestCatalog.swift`); the menu names an image the catalog knows by
+its distribution and desktop, and any other by its file name.
 
 Launch does not compare kernel, runtime, or rootfs release identities; missing
 or malformed inputs fail at their ordinary file or image boundary. Compressed delivery is an application concern: `ZstdUtil`
