@@ -115,7 +115,7 @@ def create_device(device):
                 0, 0, 0
             ),
         )
-    name = b"Kernarium Touchscreen Probe"
+    name = b"Linuxed Touchscreen Probe"
     fcntl.ioctl(
         fd,
         UI_DEV_SETUP,

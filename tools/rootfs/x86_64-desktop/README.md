@@ -30,7 +30,7 @@ Debian's Chromium reaches the Virtio video device through VA-API: the producer
 builds [`tools/video/va-v4l2`](../../video/va-v4l2/README.md) in the image's
 own root against its libva and libdrm, runs the driver's unit test and probe
 self-test there, installs `uml_drv_video.so` beside Mesa's drivers and the
-`/etc/chromium.d/kernarium-video` file that selects it, and removes the build
+`/etc/chromium.d/linuxed-video` file that selects it, and removes the build
 tools again.
 
 The first `steam` launch presents a Zenity confirmation; select **Install** in

@@ -13,10 +13,10 @@ fi
 if [ -e /usr/lib/x86_64-linux-gnu/dri/uml_drv_video.so ] && [ -e /dev/video-dec0 ]; then
     export LIBVA_DRIVER_NAME=uml
     export LIBVA_DRIVERS_PATH=/usr/lib/x86_64-linux-gnu/dri
-    export KERNARIUM_CEF_VAAPI=1
+    export LINUXED_CEF_VAAPI=1
 fi
 export XDG_SESSION_TYPE=wayland
 export XDG_CURRENT_DESKTOP=gamescope
 export XDG_SESSION_DESKTOP=gamescope
 export STEAM_COMPAT_CLIENT_INSTALL_PATH="$HOME/.local/share/Steam"
-exec dbus-run-session -- /usr/games/gamescope -e -- python3 -B /usr/local/libexec/kernarium-steam.py
+exec dbus-run-session -- /usr/games/gamescope -e -- python3 -B /usr/local/libexec/linuxed-steam.py

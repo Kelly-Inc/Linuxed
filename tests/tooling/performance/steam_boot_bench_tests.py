@@ -258,7 +258,7 @@ def steam_guest(harness, directory: pathlib.Path, script: str):
     emulator.chmod(0o755)
     return harness.SteamGuest(
         emulator, pathlib.Path("/dev/null"), directory / "userdata.img",
-        "8G", 4, "gadgets", "/usr/local/libexec/kernarium-init", [],
+        "8G", 4, "gadgets", "/usr/local/libexec/linuxed-init", [],
         directory / "boot.log")
 
 

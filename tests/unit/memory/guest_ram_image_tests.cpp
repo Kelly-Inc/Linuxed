@@ -801,7 +801,7 @@ void the_image_file_is_exclusive_and_stale_files_are_removed()
 		close(fd);
 	}
 	for (const char *other : {"notes.txt", "uml-hibernation-.img",
-		     "uml-hibernation-1.img.bak", "kernarium-initrd-9.cpio"}) {
+		     "uml-hibernation-1.img.bak", "linuxed-initrd-9.cpio"}) {
 		const int fd = open((directory / other).c_str(), O_CREAT | O_WRONLY,
 			0600);
 		require(fd >= 0, "cannot create a bystander");
@@ -830,7 +830,7 @@ void the_image_file_is_exclusive_and_stale_files_are_removed()
 	require(std::filesystem::exists(live),
 		"the image of a live process must stay");
 	for (const char *other : {"notes.txt", "uml-hibernation-.img",
-		     "uml-hibernation-1.img.bak", "kernarium-initrd-9.cpio"})
+		     "uml-hibernation-1.img.bak", "linuxed-initrd-9.cpio"})
 		require(std::filesystem::exists(directory / other),
 			"a file that is not an image must stay");
 	require(uml::memory::remove_stale_guest_ram_images(

@@ -18,7 +18,7 @@ from unittest import mock
 ROOT = Path(__file__).resolve().parents[3]
 PRODUCER = "tools/rootfs/steam-x86_64"
 SESSION = "usr/local/bin/steam-gaming-session"
-LAUNCHER = "usr/local/libexec/kernarium-steam.py"
+LAUNCHER = "usr/local/libexec/linuxed-steam.py"
 STEAM = "usr/share/uml-steam/home/uml/.local/share/Steam"
 
 
@@ -163,7 +163,7 @@ class Launcher(unittest.TestCase):
         self.assertIn("--audio", argv)
         self.assertIn("ubd0rc=/new-root.erofs", argv)
         self.assertIn("ubd1=/data.img", argv)
-        self.assertIn("init=/usr/local/libexec/kernarium-init", argv)
+        self.assertIn("init=/usr/local/libexec/linuxed-init", argv)
         self.assertIn("ro", argv)
         self.assertIn("--video", argv)
 
@@ -209,7 +209,7 @@ class Provenance(unittest.TestCase):
             # build install, is in the producer's own directory.
             sources = set(recorded["producer_sources"]) - {"tools/rootfs/producer.sh"}
             self.assertTrue(all(path.startswith(f"{PRODUCER}/") for path in sources))
-            for relative in (f"overlay/{LAUNCHER}", "overlay/usr/local/libexec/kernarium-init",
+            for relative in (f"overlay/{LAUNCHER}", "overlay/usr/local/libexec/linuxed-init",
                              "splash/screen.cpp"):
                 self.assertIn(f"{PRODUCER}/{relative}", sources)
 

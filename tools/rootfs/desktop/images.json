@@ -10,8 +10,8 @@
           "destination": "usr/lib/aarch64-linux-gnu/gbm/virtio_gpu_gbm.so"
         },
         "configuration": {
-          "from": "../../video/va-v4l2/chromium.d/kernarium-video",
-          "destination": "etc/chromium.d/kernarium-video"
+          "from": "../../video/va-v4l2/chromium.d/linuxed-video",
+          "destination": "etc/chromium.d/linuxed-video"
         }
       },
       "compression": "zstd,level=9",

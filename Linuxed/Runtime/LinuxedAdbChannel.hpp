@@ -11,10 +11,10 @@ namespace linuxed::adb {
 /* The kernel arguments through which the runtime tells an Android guest how
  * its adbd is reached. The launcher owns both: the release's command-line
  * file cannot set them (they are launcher prefixes). They become
- * ro.boot.kernarium.adb_key and ro.boot.kernarium.adb_tcp, which the guest's
+ * ro.boot.linuxed.adb_key and ro.boot.linuxed.adb_tcp, which the guest's
  * adbd reads itself. */
-inline constexpr std::string_view keyPrefix {"androidboot.kernarium.adb_key="};
-inline constexpr std::string_view tcpPrefix {"androidboot.kernarium.adb_tcp="};
+inline constexpr std::string_view keyPrefix {"androidboot.linuxed.adb_key="};
+inline constexpr std::string_view tcpPrefix {"androidboot.linuxed.adb_tcp="};
 
 /* The longest adb public key the boot request may carry. adb's own 2048-bit
  * key is 700 characters. */
@@ -41,7 +41,7 @@ inline constexpr std::size_t maximumKeyLength = 1024;
 /* Whether a launch whose LINUXED_HOST_FORWARD is `forward` (null when unset)
  * asks the guest's adbd not to listen on TCP: it does so only when nothing on
  * the host can reach that port. A launch with a forward passes no
- * androidboot.kernarium.adb_tcp argument, and adbd keeps its TCP listener. */
+ * androidboot.linuxed.adb_tcp argument, and adbd keeps its TCP listener. */
 [[nodiscard]] inline bool tcpDisabled(const char* forward) noexcept
 {
     return forward == nullptr || forward[0] == '\0';

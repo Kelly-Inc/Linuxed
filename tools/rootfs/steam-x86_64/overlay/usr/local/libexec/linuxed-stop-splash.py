@@ -9,8 +9,8 @@ __import__("sys").dont_write_bytecode = True
 from pathlib import Path
 import time
 
-Path("/run/kernarium-stop-splash").touch()
-pid_file = Path("/run/kernarium-splash.pid")
+Path("/run/linuxed-stop-splash").touch()
+pid_file = Path("/run/linuxed-splash.pid")
 if pid_file.exists():
     pid = int(pid_file.read_text())
     command = Path(f"/proc/{pid}/cmdline")
@@ -20,8 +20,8 @@ if pid_file.exists():
             arguments = command.read_bytes().split(b"\0")
         except FileNotFoundError:
             break
-        if b"/usr/local/libexec/kernarium-screen" not in arguments or b"--framebuffer" not in arguments:
+        if b"/usr/local/libexec/linuxed-screen" not in arguments or b"--framebuffer" not in arguments:
             break
         if time.monotonic() >= deadline:
-            raise SystemExit("Kernarium splash did not release the display within 10 seconds")
+            raise SystemExit("Linuxed splash did not release the display within 10 seconds")
         time.sleep(0.05)

@@ -58,7 +58,7 @@ def stop(process: subprocess.Popen) -> None:
 
 def main() -> int:
     steam = Path.home() / ".local/share/Steam"
-    state = Path(os.environ["XDG_RUNTIME_DIR"]) / "kernarium-install.status"
+    state = Path(os.environ["XDG_RUNTIME_DIR"]) / "linuxed-install.status"
 
     def display(message: str, fraction: float | None = None) -> None:
         staged = state.with_suffix(".new")
@@ -66,13 +66,13 @@ def main() -> int:
         staged.replace(state)
 
     options = ["-gamepadui"]
-    if os.environ.get("KERNARIUM_CEF_VAAPI") == "1":
+    if os.environ.get("LINUXED_CEF_VAAPI") == "1":
         # Valve's own client option is what turns on the Chromium features that
         # let its web helper decode video through VA-API in an OpenGL session.
         options.append("-cef-enable-vaapi")
 
     display("Starting Steam")
-    screen = subprocess.Popen(["/usr/local/libexec/kernarium-screen", "--status", str(state)])
+    screen = subprocess.Popen(["/usr/local/libexec/linuxed-screen", "--status", str(state)])
     client = None
     log = steam / "logs/bootstrap_log.txt"
     try:
@@ -113,7 +113,7 @@ def main() -> int:
                 return client.returncode
             display("Steam updated • starting Big Picture")
             if screen.poll() is not None:
-                screen = subprocess.Popen(["/usr/local/libexec/kernarium-screen", "--status", str(state)])
+                screen = subprocess.Popen(["/usr/local/libexec/linuxed-screen", "--status", str(state)])
         display("Steam repeatedly requested a restart. Please restart the guest.")
         return 1
     finally:

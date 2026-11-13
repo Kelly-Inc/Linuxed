@@ -1116,7 +1116,7 @@ void testVendorString()
     const char* vendor = va.context.str_vendor;
     check(vendor != nullptr && std::strncmp(vendor, "Mesa Gallium driver", 19) == 0,
           "the vendor string starts with the prefix Chromium reads as a descriptor-per-plane driver");
-    check(vendor != nullptr && std::strstr(vendor, "Kernarium Virtio video") != nullptr,
+    check(vendor != nullptr && std::strstr(vendor, "Linuxed Virtio video") != nullptr,
           "and names this driver");
 }
 

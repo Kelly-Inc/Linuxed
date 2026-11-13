@@ -50,10 +50,10 @@ void touchscreenConfigurationIsDirectWithAFixedRange()
 
     select(device, protocol::configIdName, 0);
     const auto name = configuration(device);
-    require(name.size == std::strlen("Kernarium Touchscreen"));
+    require(name.size == std::strlen("Linuxed Touchscreen"));
     require(std::memcmp(
                 name.value.string.data(),
-                "Kernarium Touchscreen",
+                "Linuxed Touchscreen",
                 name.size) == 0);
 
     select(device, protocol::configPropertyBits, 0);

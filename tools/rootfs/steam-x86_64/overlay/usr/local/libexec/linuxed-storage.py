@@ -13,8 +13,8 @@ import subprocess
 import time
 
 SEED = Path("/usr/share/uml-steam")
-STATUS = Path("/run/kernarium-progress.status")
-NEW_DISK = b"KERNARIUM NEW USER DATA v1\n"
+STATUS = Path("/run/linuxed-progress.status")
+NEW_DISK = b"LINUXED NEW USER DATA v1\n"
 
 
 def status(message: str, fraction: float | None = None) -> None:
@@ -30,7 +30,7 @@ def run(*args: str, timeout: int = 120) -> None:
 def seed_tree(source: Path, destination: Path, caption: str) -> None:
     if destination.exists():
         return
-    temporary = destination.with_name("." + destination.name + ".kernarium-seed")
+    temporary = destination.with_name("." + destination.name + ".linuxed-seed")
     if temporary.exists():
         # Only this interrupted first-copy staging directory is disposable.
         shutil.rmtree(temporary)
@@ -74,7 +74,7 @@ def check_filesystem(device: Path) -> None:
         if marker != NEW_DISK:
             raise RuntimeError("User-data filesystem is unrecognized. The disk has been preserved for repair.")
         status("Creating your data partition")
-        run("mkfs.ext4", "-q", "-b", "4096", "-m", "0", "-L", "kernarium-data",
+        run("mkfs.ext4", "-q", "-b", "4096", "-m", "0", "-L", "linuxed-data",
             "-E", "lazy_itable_init=1,lazy_journal_init=1", str(device))
     elif identified.returncode != 0 or identified.stdout.strip() != "ext4":
         raise RuntimeError("User-data partition is not ext4. The disk has been preserved.")
@@ -90,7 +90,7 @@ def prepare() -> None:
     deadline = time.monotonic() + 30
     while not device.exists():
         if time.monotonic() >= deadline:
-            raise RuntimeError("User-data disk is missing. Attach the Kernarium data disk and restart.")
+            raise RuntimeError("User-data disk is missing. Attach the Linuxed data disk and restart.")
         time.sleep(0.1)
     check_filesystem(device)
     run("mount", "-t", "ext4", "-o", "noatime", str(device), "/userdata")
@@ -111,16 +111,16 @@ def prepare() -> None:
 
 
 def main() -> None:
-    status("Starting Kernarium")
-    Path("/run/kernarium-cache").mkdir(exist_ok=True)
-    splash = subprocess.Popen(["/usr/local/libexec/kernarium-screen", "--framebuffer"],
-                              env={**os.environ, "XDG_CACHE_HOME": "/run/kernarium-cache"})
-    Path("/run/kernarium-splash.pid").write_text(str(splash.pid))
+    status("Starting Linuxed")
+    Path("/run/linuxed-cache").mkdir(exist_ok=True)
+    splash = subprocess.Popen(["/usr/local/libexec/linuxed-screen", "--framebuffer"],
+                              env={**os.environ, "XDG_CACHE_HOME": "/run/linuxed-cache"})
+    Path("/run/linuxed-splash.pid").write_text(str(splash.pid))
     try:
         prepare()
     except Exception as error:
         status(str(error))
-        print(f"Kernarium boot failed: {error}", flush=True)
+        print(f"Linuxed boot failed: {error}", flush=True)
         # Keep the error visible while exposing recovery on the serial console.
         os.execv("/bin/sh", ["/bin/sh"])
     os.execv("/lib/systemd/systemd", ["/lib/systemd/systemd"])

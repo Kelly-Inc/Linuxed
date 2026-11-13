@@ -9,8 +9,8 @@ namespace linuxed::timezone {
 /* The kernel argument through which the runtime gives an Android guest the
  * host's time zone. The launcher owns it: the release's command-line file
  * cannot set it (it is a launcher prefix). It becomes
- * ro.boot.kernarium.timezone, which the guest's time zone script reads. */
-inline constexpr std::string_view prefix {"androidboot.kernarium.timezone="};
+ * ro.boot.linuxed.timezone, which the guest's time zone script reads. */
+inline constexpr std::string_view prefix {"androidboot.linuxed.timezone="};
 
 /* The longest identifier the boot request may carry. The longest IANA name is
  * 32 characters. */

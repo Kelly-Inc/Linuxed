@@ -7,4 +7,4 @@ mountpoint -q /proc || mount -t proc proc /proc
 mountpoint -q /sys || mount -t sysfs sysfs /sys
 mountpoint -q /run || mount -t tmpfs -o mode=0755,nosuid,nodev tmpfs /run
 mountpoint -q /tmp || mount -t tmpfs -o mode=1777,nosuid,nodev tmpfs /tmp
-exec /usr/bin/python3 -B /usr/local/libexec/kernarium-storage.py
+exec /usr/bin/python3 -B /usr/local/libexec/linuxed-storage.py

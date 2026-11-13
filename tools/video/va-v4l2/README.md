@@ -127,7 +127,7 @@ module.
 ## In the Debian desktop images
 
 The starter Plasma image, the KDE image and the x86-64 desktop image carry
-Debian's Chromium, the driver and [`chromium.d/kernarium-video`](chromium.d/kernarium-video),
+Debian's Chromium, the driver and [`chromium.d/linuxed-video`](chromium.d/linuxed-video),
 which `/usr/bin/chromium` sources at start. The file names the driver (libva
 would otherwise map the virtio-gpu node to Mesa's driver), points Chromium at
 the guest's render node (not a PCI device, so Chromium finds none itself and
@@ -161,7 +161,7 @@ same way into the KDE image.
 [`tools/rootfs/steam-x86_64`](../../rootfs/steam-x86_64/README.md) compiles this
 driver in its builder root, runs the unit test there, and installs the module as
 `/usr/lib/x86_64-linux-gnu/dri/uml_drv_video.so`. The gaming session exports
-`LIBVA_DRIVER_NAME=uml` and `KERNARIUM_CEF_VAAPI=1` when the module and
+`LIBVA_DRIVER_NAME=uml` and `LINUXED_CEF_VAAPI=1` when the module and
 `/dev/video-dec0` are both present, and the session supervisor then starts the
 client with Valve's `-cef-enable-vaapi`, including its
 `VaapiIgnoreDriverChecks` feature, without which Chromium accepts only the

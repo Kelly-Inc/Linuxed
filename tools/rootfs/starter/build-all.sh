@@ -48,7 +48,7 @@ release holds every product but the armhf and desktop EROFS ones:
   debian-13-phosh debian-13-plasma-mobile
 
 debian-13-xfce, debian-13-phosh and debian-13-plasma-mobile are bare EROFS
-images for Kernarium; they need mkfs.erofs.
+images for Linuxed; they need mkfs.erofs.
 
 debian-13-minimal-armhf runs ARM programs under qemu-arm (Debian's qemu-user)
 in private namespaces.
@@ -706,8 +706,8 @@ build_debian_plasma()
 }
 
 # Debian with a desktop session ($1: xfce or phosh) as a bare LZMA EROFS
-# image: Kernarium mounts a whole image as its read-only root, so it carries
-# no partition table. Debian's Mesa carries the Virgl driver the Kernarium
+# image: Linuxed mounts a whole image as its read-only root, so it carries
+# no partition table. Debian's Mesa carries the Virgl driver the Linuxed
 # GPU renders through.
 build_debian_desktop()
 {

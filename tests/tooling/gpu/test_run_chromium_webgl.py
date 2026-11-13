@@ -441,7 +441,7 @@ class AquariumProbePolicyTests(unittest.TestCase):
         self.assertEqual(contract.sha256, receipt["derivative"]["sha256"])
 
     def test_linuxed_payload_boots_the_probe_target(self) -> None:
-        payload = run_chromium_webgl.kernarium_payload().files
+        payload = run_chromium_webgl.linuxed_payload().files
         self.assertEqual(
             set(payload),
             {
@@ -1164,7 +1164,7 @@ class AuthenticatedRootfsValidationTests(unittest.TestCase):
     """
 
     def test_erofs_rootfs_validation_invokes_the_image_verifier(self) -> None:
-        common = run_chromium_webgl.kernarium_common
+        common = run_chromium_webgl.linuxed_common
         contract = mock.Mock(filesystem_type="erofs")
         with tempfile.TemporaryDirectory() as directory:
             rootfs = Path(directory) / "rootfs.erofs"
@@ -1179,7 +1179,7 @@ class AuthenticatedRootfsValidationTests(unittest.TestCase):
             self.assertIn(str(rootfs), argv)
 
     def test_erofs_rootfs_of_the_wrong_size_is_refused(self) -> None:
-        common = run_chromium_webgl.kernarium_common
+        common = run_chromium_webgl.linuxed_common
         contract = mock.Mock(filesystem_type="erofs")
         with tempfile.TemporaryDirectory() as directory:
             rootfs = Path(directory) / "rootfs.erofs"

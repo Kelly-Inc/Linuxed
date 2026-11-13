@@ -49,7 +49,7 @@ class VideoDriverImageTests(unittest.TestCase):
     def test_the_driver_installs_the_chromium_file_with_itself(self) -> None:
         cmake = text(VIDEO / "CMakeLists.txt")
         self.assertIn(
-            "install(FILES chromium.d/kernarium-video "
+            "install(FILES chromium.d/linuxed-video "
             "DESTINATION ${CMAKE_INSTALL_FULL_SYSCONFDIR}/chromium.d)",
             cmake,
         )

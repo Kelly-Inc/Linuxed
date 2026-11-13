@@ -39,7 +39,7 @@ VirtioBatteryDevice::VirtioBatteryDevice(
 
 const char* VirtioBatteryDevice::name() const noexcept
 {
-    return "Virtio Kernarium battery";
+    return "Virtio Linuxed battery";
 }
 
 std::uint64_t VirtioBatteryDevice::features() const noexcept

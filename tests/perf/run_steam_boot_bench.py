@@ -67,9 +67,9 @@ def _load_disk_preparation():
 prepare_disk = _load_disk_preparation()
 
 # The image-owned contract of the Linuxed Steam appliance.
-IMAGE_INIT = "/usr/local/libexec/kernarium-init"
-STORAGE_STATUS = "/run/kernarium-progress.status"
-INSTALL_STATUS = "/run/user/*/kernarium-install.status"
+IMAGE_INIT = "/usr/local/libexec/linuxed-init"
+STORAGE_STATUS = "/run/linuxed-progress.status"
+INSTALL_STATUS = "/run/user/*/linuxed-install.status"
 BOOTSTRAP_LOG = "/home/uml/.local/share/Steam/logs/bootstrap_log.txt"
 READY_WINDOW = "Steam Big Picture Mode"
 

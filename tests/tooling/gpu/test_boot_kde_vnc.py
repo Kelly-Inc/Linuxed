@@ -398,7 +398,7 @@ class KdeVncLauncherTests(unittest.TestCase):
             with (
                 mock.patch.object(sys, "argv", arguments),
                 mock.patch.object(
-                    run_webgl_samples.kernarium_common, "validate_rootfs"
+                    run_webgl_samples.linuxed_common, "validate_rootfs"
                 ),
                 mock.patch.object(samples_launcher, "parse_arguments"),
                 mock.patch.object(

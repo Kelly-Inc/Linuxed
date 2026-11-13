@@ -13,7 +13,7 @@ Kernel bundle (--kernel arm64|x86_64):
     the accepted descriptor records, which is every patch of the series;
   - with --app, the kernel in the packaged runtime framework is the kernel the
     descriptor names (the release in its Linux banner), its banner names the
-    neutral build user and host kernarium@kernarium, and its embedded
+    neutral build user and host linuxed@linuxed, and its embedded
     configuration (CONFIG_IKCONFIG) holds every symbol the tracked fragments
     request, as the build's own check does. The bundle manifest records no
     configuration identity, so a symbol removed from a fragment, which falls
@@ -58,7 +58,7 @@ DECISION_ENV = "PENDING_INPUTS_DECISION"
 ELF_SECTION = ("__TEXT", "__uml_elf")
 # The build user and host build-kernel.sh gives every kernel; any other pair in
 # a banner is the builder's own account and machine.
-NEUTRAL_BUILDER = "kernarium@kernarium"
+NEUTRAL_BUILDER = "linuxed@linuxed"
 HISTORY_LIMIT = 400
 SHOWN_COMMITS = 10
 

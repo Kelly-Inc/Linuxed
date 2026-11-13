@@ -90,7 +90,7 @@ it. The bridge fields used below are defined by the comments in
   (`vm-other`) work. The system, baseboard, chassis, BIOS, processor, and
   memory vendor is `Linuxed`; the product, family, and board are
   `Virtual Machine`; the BIOS version is the kernel release; the chassis type
-  is Other; the processor is `Kernarium Virtual CPU` with the possible CPUs as
+  is Other; the processor is `Linuxed Virtual CPU` with the possible CPUs as
   its cores and threads; one memory device is the RAM the guest was given. No
   serial number, UUID, speed, or firmware date is claimed. No kernel has
   `/dev/mem`: UML's physical address 0 is the kernel image, so a mapping would
@@ -206,7 +206,7 @@ it. The bridge fields used below are defined by the comments in
   the AT_HWCAP and AT_HWCAP2 bits every task receives. `guest-gadgets-smoke` and
   `guest-jit-smoke` check it.
 - The x86_64 slice describes its emulated x86 CPU instead. The virtual CPU is
-  `Kernarium Virtual CPU` (`darwin/cpu/guest_identity.hpp`), which is also both
+  `Linuxed Virtual CPU` (`darwin/cpu/guest_identity.hpp`), which is also both
   x86 engines' CPUID brand string and every kernel's SMBIOS processor version.
   The Android image names it as `ro.soc.manufacturer` and `ro.soc.model`, and a
   tooling test requires them to agree.

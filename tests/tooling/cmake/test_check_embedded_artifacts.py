@@ -77,8 +77,8 @@ def macho(sections: dict) -> bytes:
     return header + segment + entries + payload
 
 
-# build-kernel.sh still names the builder kernarium until the next kernel.
-NEUTRAL_BUILDER = "kernarium@kernarium"
+# build-kernel.sh still names the builder linuxed until the next kernel.
+NEUTRAL_BUILDER = "linuxed@linuxed"
 
 
 def kernel_image(
@@ -188,8 +188,8 @@ class CheckTests(unittest.TestCase):
 
     def test_a_packaged_kernel_built_as_another_user_or_host_fails(self) -> None:
         cases = {
-            "banner user": {"builder": "qzxuser@kernarium"},
-            "banner host": {"builder": "kernarium@qzxhost"},
+            "banner user": {"builder": "qzxuser@linuxed"},
+            "banner host": {"builder": "linuxed@qzxhost"},
             "proc format": {"proc_builder": "qzxuser@qzxhost"},
         }
         for label, builders in cases.items():

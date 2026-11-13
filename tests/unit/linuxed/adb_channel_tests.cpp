@@ -61,8 +61,8 @@ void theArgumentPrefixesEndInAnEqualsSign()
 {
     require(keyPrefix.ends_with('='));
     require(tcpPrefix.ends_with('='));
-    require(keyPrefix.starts_with("androidboot.kernarium."));
-    require(tcpPrefix.starts_with("androidboot.kernarium."));
+    require(keyPrefix.starts_with("androidboot.linuxed."));
+    require(tcpPrefix.starts_with("androidboot.linuxed."));
 }
 
 } // namespace

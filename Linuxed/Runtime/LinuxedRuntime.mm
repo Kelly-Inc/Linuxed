@@ -967,7 +967,7 @@ public:
     }
 
 private:
-    static constexpr std::string_view prefix {"kernarium-initrd-"};
+    static constexpr std::string_view prefix {"linuxed-initrd-"};
     std::filesystem::path path_;
 };
 

@@ -114,7 +114,7 @@ producer_install_uml_va_driver()
 		build-essential cmake ninja-build pkg-config libva-dev libdrm-dev
 	sudo -n rm -rf -- "$producer_va_root/tmp/va-v4l2" \
 		"$producer_va_root/tmp/va-v4l2-build"
-	sudo -n test -f "$producer_va_root/etc/chromium.d/kernarium-video" || \
+	sudo -n test -f "$producer_va_root/etc/chromium.d/linuxed-video" || \
 		fail "the Chromium configuration was not installed"
 }
 

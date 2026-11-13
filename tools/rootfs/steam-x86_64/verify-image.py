@@ -24,7 +24,7 @@ STEAM_BUNDLED_I386 = tuple(STEAM + name + "/" for name in (
 ))
 ELF_MACHINES = {3: "I386", 62: "AMD64", 183: "AArch64"}
 REQUIRED_ELF = (
-    "usr/local/libexec/kernarium-screen",
+    "usr/local/libexec/linuxed-screen",
     "usr/bin/lsof",
     "usr/games/gamescope",
     "usr/games/gamescopereaper",
@@ -84,9 +84,9 @@ def inventory(root: Path) -> list[tuple[str, str, str]]:
     if not decoder_rule.is_file() or 'SYMLINK+="video-dec%n"' not in decoder_rule.read_text():
         raise RuntimeError("V4L2 decoder discovery rule is absent or invalid")
     session = (root / "usr/local/bin/steam-gaming-session").read_text()
-    if "LIBVA_DRIVER_NAME=uml" not in session or "KERNARIUM_CEF_VAAPI=1" not in session:
+    if "LIBVA_DRIVER_NAME=uml" not in session or "LINUXED_CEF_VAAPI=1" not in session:
         raise RuntimeError("the session does not select the image's VA-API backend")
-    if "-cef-enable-vaapi" not in (root / "usr/local/libexec/kernarium-steam.py").read_text():
+    if "-cef-enable-vaapi" not in (root / "usr/local/libexec/linuxed-steam.py").read_text():
         raise RuntimeError("the launcher never enables VA-API decode in the web helper")
     for executable in ("usr/bin/startxfce4", "usr/bin/gnome-session", "usr/bin/startplasma-wayland"):
         if (root / executable).exists():

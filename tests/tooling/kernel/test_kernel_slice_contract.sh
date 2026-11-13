@@ -476,7 +476,7 @@ END { exit !(NR == 6 && good == 6) }
 
 # Every kernel line, slice and product builds as the neutral user and host, so
 # the Linux banner names neither the builder's account nor machine.
-grep -F 'KBUILD_BUILD_USER=kernarium KBUILD_BUILD_HOST=kernarium' \
+grep -F 'KBUILD_BUILD_USER=linuxed KBUILD_BUILD_HOST=linuxed' \
 	"$LINE_ROOT/build/build-kernel.sh" >/dev/null ||
 	fail "build-kernel.sh does not build as the neutral user and host"
 

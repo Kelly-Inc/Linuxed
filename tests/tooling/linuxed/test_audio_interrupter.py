@@ -51,7 +51,7 @@ def swift_text() -> str:
 
 class ScriptTests(unittest.TestCase):
     def test_identifier_comes_from_the_linuxed_project(self) -> None:
-        self.assertEqual(interrupter.kernarium_identifier(), "com.imxieyi.Linuxed")
+        self.assertEqual(interrupter.linuxed_identifier(), "com.imxieyi.Linuxed")
 
     def test_team_comes_from_the_environment_or_the_local_xcconfig(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

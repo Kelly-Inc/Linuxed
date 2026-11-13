@@ -410,7 +410,7 @@ std::array<std::uint8_t, protocol::baseEdidSize> makeEdid(
         (heightMillimeters >> 8U));
     edid[timing + 17U] = 0x1e; // Non-interlaced separate positive sync.
 
-    writeMonitorDescriptor(edid, 72, 0xfc, "Kernarium");
+    writeMonitorDescriptor(edid, 72, 0xfc, "Linuxed");
     writeMonitorDescriptor(edid, 90, 0x10);
     writeMonitorDescriptor(edid, 108, 0x10);
     edid[126] = 0;

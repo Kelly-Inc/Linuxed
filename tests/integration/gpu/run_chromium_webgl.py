@@ -1447,11 +1447,11 @@ def main() -> int:
         ),
     )
     options = parser.parse_args()
-    if options.kernarium_payload is not None:
-        if options.kernarium_payload.exists():
-            parser.error(f"{options.kernarium_payload} already exists")
+    if options.linuxed_payload is not None:
+        if options.linuxed_payload.exists():
+            parser.error(f"{options.linuxed_payload} already exists")
         linuxed_payload().write(
-            options.kernarium_payload.resolve(), options.initramfs_tool
+            options.linuxed_payload.resolve(), options.initramfs_tool
         )
         return 0
     receipt_kind = None

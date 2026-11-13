@@ -236,13 +236,13 @@ protocol::InputConfig VirtioInputDevice::selectedConfiguration() const
         copyString(
             config,
             kind_ == DeviceKind::touchscreen ?
-                "Kernarium Touchscreen" : "Kernarium Keyboard");
+                "Linuxed Touchscreen" : "Linuxed Keyboard");
         break;
     case protocol::configIdSerial:
         copyString(
             config,
             kind_ == DeviceKind::touchscreen ?
-                "kernarium-touch-0" : "kernarium-keyboard-0");
+                "linuxed-touch-0" : "linuxed-keyboard-0");
         break;
     case protocol::configIdDeviceIds: {
         const protocol::InputDeviceIds ids {

@@ -85,7 +85,7 @@ enum {
  * characters of A-Z a-z 0-9 _ + - and / in slash-separated components that
  * start with a letter or digit, or null for none. The runtime reads it only
  * from a request whose struct_size covers it, passes a valid name as
- * androidboot.kernarium.timezone, and drops anything else with a line on
+ * androidboot.linuxed.timezone, and drops anything else with a line on
  * stderr: a time zone never fails a boot. Whether the guest knows the name,
  * and whether it follows it, is the guest's to decide. A Linux guest ignores
  * it.

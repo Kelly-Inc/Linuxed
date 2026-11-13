@@ -15,7 +15,7 @@ import shlex
 import subprocess
 import tempfile
 
-NEW_DISK = b"KERNARIUM NEW USER DATA v1\n"
+NEW_DISK = b"LINUXED NEW USER DATA v1\n"
 # The x86-64 guest has one execution engine, named explicitly so the launch
 # contract never depends on the emulator's default. Virtio sound plays through
 # the Apple audio output.
@@ -45,7 +45,7 @@ def prepare_disk(path: Path, size_gib: int) -> None:
             with os.fdopen(descriptor, "wb") as stream:
                 stream.truncate(size_gib << 30)
             disk_command("--clear", "--new=1:2048:0", "--typecode=1:8300",
-                         "--change-name=1:kernarium-data", str(staged))
+                         "--change-name=1:linuxed-data", str(staged))
             with staged.open("r+b") as stream:
                 stream.seek((2048 * 512) + 1024)
                 stream.write(NEW_DISK)
@@ -60,7 +60,7 @@ def prepare_disk(path: Path, size_gib: int) -> None:
     table = disk_command("--print", str(path))
     partitions = re.findall(r"^\s+\d+\s+\d+\s+\d+.*$", table, re.M)
     if "No problems found" not in verified or len(partitions) != 1 or not re.search(
-            r"^\s+1\s+2048\s+\d+\s+.*\s8300\s+kernarium-data\s*$", partitions[0]):
+            r"^\s+1\s+2048\s+\d+\s+.*\s8300\s+linuxed-data\s*$", partitions[0]):
         raise ValueError("user-data GPT is invalid; preserve the disk and repair it before booting")
 
 
@@ -70,7 +70,7 @@ def command(emulator: Path, rootfs: Path, userdata: Path, memory: str, unit: str
         if argument.split("=", 1)[0] in RESERVED or argument.startswith("ubd"):
             raise ValueError(f"launcher controls this argument: {argument}")
     return [str(emulator), *OPTIONS, f"ubd0rc={rootfs}", f"ubd1={userdata}", "root=/dev/ubda",
-            "rootfstype=erofs", "ro", "init=/usr/local/libexec/kernarium-init",
+            "rootfstype=erofs", "ro", "init=/usr/local/libexec/linuxed-init",
             f"mem={memory}", "console=ttyS0", "ip=off", "quiet", "loglevel=3",
             "systemd.show_status=false", f"systemd.unit={unit}", *extra]
 

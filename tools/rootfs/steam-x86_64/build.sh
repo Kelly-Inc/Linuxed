@@ -111,9 +111,9 @@ sudo -n tar -xf "$inputs/builder.tar.zst" -C "$builder"
 sudo -n cp -a "$here/splash" "$builder/splash"
 sudo -n chroot "$builder" env CCACHE_DISABLE=1 sh -eu -c \
 	'cd /splash; cmake --preset steam-sdk -B /splash-build; cmake --build /splash-build'
-sudo -n install -m 0755 "$builder/splash-build/kernarium-screen" "$root/usr/local/libexec/kernarium-screen"
-sudo -n chroot "$root" ldd /usr/local/libexec/kernarium-screen > "$work_dir/kernarium-screen.ldd"
-! grep -q 'not found' "$work_dir/kernarium-screen.ldd"
+sudo -n install -m 0755 "$builder/splash-build/linuxed-screen" "$root/usr/local/libexec/linuxed-screen"
+sudo -n chroot "$root" ldd /usr/local/libexec/linuxed-screen > "$work_dir/linuxed-screen.ldd"
+! grep -q 'not found' "$work_dir/linuxed-screen.ldd"
 
 # The VA-API backend over the Virtio video stateful decoder is compiled in the
 # same builder root, against the libva and libdrm the image ships, and its own
@@ -142,5 +142,5 @@ sudo -n mv "$root/home/uml" "$root/usr/share/uml-steam/home/uml"
 sudo -n mv "$root/var/lib/dpkg" "$root/usr/share/uml-steam/dpkg"
 sudo -n ln -s /usr/share/uml-steam/dpkg "$root/var/lib/dpkg"
 sudo -n cp -a "$root/var" "$root/usr/share/uml-steam/var"
-sudo -n chmod 0755 "$root/usr/local/libexec/kernarium-init"
+sudo -n chmod 0755 "$root/usr/local/libexec/linuxed-init"
 "$here/seal-image.sh" "$inputs" "$work_dir" "$output"

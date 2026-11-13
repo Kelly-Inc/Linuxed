@@ -51,8 +51,8 @@ void refusesWhatIsNotAName()
 void thePrefixIsALauncherArgument()
 {
     require(prefix.ends_with('='));
-    require(prefix.starts_with("androidboot.kernarium."));
-    require(prefix == "androidboot.kernarium.timezone=");
+    require(prefix.starts_with("androidboot.linuxed."));
+    require(prefix == "androidboot.linuxed.timezone=");
 }
 
 } // namespace

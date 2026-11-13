@@ -138,7 +138,7 @@ private:
         window = XCreateWindow(display, root, 0, 0, width, height, 0, visual->depth,
                                InputOutput, visual->visual, CWColormap, &attributes);
         XFree(visual);
-        XStoreName(display, window, "Kernarium");
+        XStoreName(display, window, "Linuxed");
         unsigned long app = 769;
         XChangeProperty(display, window, XInternAtom(display, "STEAM_GAME", False), XA_CARDINAL,
                         32, PropModeReplace, reinterpret_cast<unsigned char *>(&app), 1);
@@ -219,7 +219,7 @@ private:
         const char *renderer = reinterpret_cast<const char *>(glGetString(GL_RENDERER));
         require(renderer && !std::strstr(renderer, "llvmpipe") && !std::strstr(renderer, "softpipe"),
                 "Splash requires hardware GPU rendering");
-        std::fprintf(stderr, "Kernarium GPU splash (%s): %s\n", kms ? "KMS" : "X11", renderer);
+        std::fprintf(stderr, "Linuxed GPU splash (%s): %s\n", kms ? "KMS" : "X11", renderer);
     }
     void release()
     {
@@ -315,7 +315,7 @@ public:
             message = state.message;
             std::vector<Vertex> scene;
             text(scene, "K", 82 * scale, height * 0.40f, blue);
-            text(scene, "Kernarium", 38 * scale, height * 0.50f, {0.94f, 0.96f, 1.0f});
+            text(scene, "Linuxed", 38 * scale, height * 0.50f, {0.94f, 0.96f, 1.0f});
             const float barWidth = std::min(520 * scale, width * 0.8f);
             quad(scene, (width - barWidth) / 2, height * 0.61f, barWidth, 4 * scale,
                  2047.5f / 2048, 1023.5f / 1024, 2047.5f / 2048, 1023.5f / 1024, {0.13f, 0.17f, 0.24f});
@@ -435,11 +435,11 @@ int main(int argc, char **argv)
 {
     try {
         bool framebuffer = false;
-        std::string status = "/run/kernarium-progress.status";
+        std::string status = "/run/linuxed-progress.status";
         for (int i = 1; i < argc; ++i) {
             if (std::strcmp(argv[i], "--framebuffer") == 0) framebuffer = true;
             else if (std::strcmp(argv[i], "--status") == 0 && i + 1 < argc) status = argv[++i];
-            else throw std::runtime_error("Usage: kernarium-screen [--framebuffer] [--status PATH]");
+            else throw std::runtime_error("Usage: linuxed-screen [--framebuffer] [--status PATH]");
         }
         std::signal(SIGTERM, stop); std::signal(SIGINT, stop);
         DisplayCanvas canvas(framebuffer);
@@ -451,7 +451,7 @@ int main(int argc, char **argv)
         std::optional<State> presented;
         while (!stopped && Clock::now() < deadline) {
             if (Clock::now() >= nextStatus) {
-                if (framebuffer && std::filesystem::exists("/run/kernarium-stop-splash")) break;
+                if (framebuffer && std::filesystem::exists("/run/linuxed-stop-splash")) break;
                 state = readState(status);
                 nextStatus = Clock::now() + std::chrono::milliseconds(200);
             }
@@ -467,7 +467,7 @@ int main(int argc, char **argv)
         }
         return 0;
     } catch (const std::exception &error) {
-        std::fprintf(stderr, "Kernarium splash: %s\n", error.what());
+        std::fprintf(stderr, "Linuxed splash: %s\n", error.what());
         return 1;
     }
 }

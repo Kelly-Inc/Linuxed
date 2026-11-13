@@ -24,7 +24,7 @@ namespace uml::cpu {
  * The array is the definition so the bridge can hand the kernel a plain
  * NUL-terminated pointer into it; the view is what host code reads.
  */
-inline constexpr char guest_cpu_model_name_storage[] = "Kernarium Virtual CPU";
+inline constexpr char guest_cpu_model_name_storage[] = "Linuxed Virtual CPU";
 
 inline constexpr std::string_view guest_cpu_model_name{
 	guest_cpu_model_name_storage};
