@@ -228,6 +228,12 @@ public:
         return display_ ? display_->vncPort() : std::nullopt;
     }
 
+    void sendDisplayInput(
+        std::span<const uml::input::vnc::VncInputEvent> events) noexcept
+    {
+        sendInput(events);
+    }
+
 private:
     /* The guest said it is ending. Runs on the guest kernel's thread, which
      * the guest's shutdown depends on, so it only flags the end and turns a
@@ -376,6 +382,12 @@ std::string InProcessGpuService::takeConnectionName()
 std::string InProcessGpuService::takeInputConnectionName()
 {
     return implementation_->takeInputConnectionName();
+}
+
+void InProcessGpuService::sendDisplayInput(
+    std::span<const uml::input::vnc::VncInputEvent> events) noexcept
+{
+    implementation_->sendDisplayInput(events);
 }
 
 void InProcessGpuService::startNextConnection()

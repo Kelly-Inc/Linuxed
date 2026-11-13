@@ -31,7 +31,10 @@ set(_required
     "${PREFIX}/include/ffi.h"
     "${PREFIX}/include/glib-2.0/glib.h"
     "${PREFIX}/lib/glib-2.0/include/glibconfig.h"
-    "${PREFIX}/include/slirp/libslirp.h")
+    "${PREFIX}/include/slirp/libslirp.h"
+    "${PREFIX}/lib/libz.a"
+    "${PREFIX}/lib/libvncserver.a"
+    "${PREFIX}/include/rfb/rfb.h")
 uml_require_prefix_files(LABEL "iOS network" FILES ${_required})
 
 uml_verify_dependency_manifest_product(
@@ -50,7 +53,8 @@ uml_verify_provenance_copy(
     INSTALLED "${PREFIX}/share/uml-dependencies/${_platform_receipt}")
 
 foreach(_archive IN ITEMS
-        libpcre2-8.a libffi.a libintl.a libglib-2.0.a libslirp.a)
+        libpcre2-8.a libffi.a libintl.a libglib-2.0.a libslirp.a libz.a
+        libvncserver.a)
     uml_verify_apple_binary(PATH "${PREFIX}/lib/${_archive}"
         PLATFORM ${_mach_platform} MINOS 27.0)
 endforeach()

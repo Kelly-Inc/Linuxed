@@ -33,6 +33,9 @@
 #endif
 #include "gpu/in_process_service.hpp"
 #include "gpu/protocol.hpp"
+#ifndef UML_APP_STORE_RUNTIME
+#include "gpu/remote_display.hpp"
+#endif
 #include "input/virtio/in_process_service.hpp"
 #include "input/virtio/touchscreen.hpp"
 #include "block/boot_initramfs.hpp"
@@ -166,6 +169,11 @@ std::shared_ptr<uml::vsock::Endpoint> activeVsock;
  * effect when it does. */
 std::mutex activeGpuMutex;
 uml::gpu::InProcessGpuService* activeGpu;
+#ifndef UML_APP_STORE_RUNTIME
+/* While a remote display serves the frame mirror, the application's own
+ * frame sink (Picture in Picture) cannot take it. */
+std::atomic<bool> remoteDisplayHoldsMirror {false};
+#endif
 bool gpuHoldRequested;
 /* Longest a hold waits for a GPU request already running. The application
  * holds inside didEnterBackground, which iOS gives about five seconds. */
@@ -1028,6 +1036,24 @@ public:
         , sharedMemoryRegions_(std::move(sharedMemoryRegions))
         , network_(network)
     {
+#ifndef UML_APP_STORE_RUNTIME
+        /* The app's Remote display setting: the guest's display over VNC on
+         * loopback port 5900, for a computer on the USB tunnel. */
+        if (const char* remote = std::getenv("LINUXED_REMOTE_DISPLAY");
+            remote != nullptr && std::strcmp(remote, "1") == 0) {
+            try {
+                remote_ = std::make_unique<uml::gpu::RemoteDisplay>(
+                    uml::gpu::RemoteDisplay::Options {},
+                    [&gpu](std::span<const uml::input::vnc::VncInputEvent> events) {
+                        gpu.sendDisplayInput(events);
+                    });
+                remoteDisplayHoldsMirror.store(true, std::memory_order_release);
+                std::fputs("Linuxed: remote display on 127.0.0.1:5900\n", stderr);
+            } catch (const std::exception& error) {
+                std::fprintf(stderr, "Linuxed: no remote display: %s\n", error.what());
+            }
+        }
+#endif
     }
 
     /* The handle every boot runs on; it outlives the guest's last boot. */
@@ -1246,6 +1272,9 @@ private:
         arguments.emplace_back(uml::gpu::virtioDeviceArgument(
             gpu_.takeConnectionName(),
             uml::gpu::protocol::virtioGpuDeviceId));
+        // The tablet and keyboard a remote display's input arrives on.
+        arguments.emplace_back(
+            "uml_vnc_input." + gpu_.takeInputConnectionName());
         arguments.emplace_back(uml::gpu::virtioDeviceArgument(
             boot->touchscreen->takeConnectionName(),
             uml::input::virtio::protocol::deviceId));
@@ -1323,6 +1352,17 @@ private:
     AppNetwork& network_;
     uml_emulator* emulator_ {};
     std::unique_ptr<Boot> boot_;
+#ifndef UML_APP_STORE_RUNTIME
+    struct RemoteDisplayRelease {
+        ~RemoteDisplayRelease()
+        {
+            remoteDisplayHoldsMirror.store(false, std::memory_order_release);
+        }
+    };
+    // Declared first so it runs after remote_ has stopped the mirror.
+    RemoteDisplayRelease remoteRelease_;
+    std::unique_ptr<uml::gpu::RemoteDisplay> remote_;
+#endif
 };
 
 constexpr std::uint64_t mebibyte = 1024ULL * 1024ULL;
@@ -2048,6 +2088,8 @@ int runtimeSetFrameSink(
     std::uint32_t maximumWidth,
     std::uint32_t framesPerSecond)
 {
+    if (remoteDisplayHoldsMirror.load(std::memory_order_acquire))
+        return -EBUSY;
     if (sink == nullptr) {
         uml::gpu::setFrameTap(nullptr, nullptr);
         return 0;

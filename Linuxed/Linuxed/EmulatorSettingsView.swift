@@ -7,6 +7,9 @@ import UIKit
 struct EmulatorSettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @ObservedObject private var microphone = MicrophoneSetting.shared
+    /// The guest's display over VNC on loopback port 5900, for a computer on
+    /// the USB tunnel. EmulatorLauncher reads it as each run starts.
+    @AppStorage(EmulatorLauncher.remoteDisplayKey) private var remoteDisplay = false
 
     @State private var configuration: EmulatorConfiguration
     @State private var backgroundMode: BackgroundMode
@@ -148,6 +151,19 @@ struct EmulatorSettingsView: View {
                 // Unlike the rest of the form this applies at once, whatever
                 // Save or Cancel does: turning it on is when iOS asks for
                 // access (see MicrophoneSetting).
+                Section("Remote display") {
+                    Toggle("Remote display over USB", isOn: $remoteDisplay)
+                        .accessibilityIdentifier("remoteDisplayToggle")
+                    Text(
+                        "Control the guest from a computer: connect the phone by USB, " +
+                            "run iproxy 5900 5900 on the computer, then open a VNC " +
+                            "viewer at localhost:5900. It applies the next time the " +
+                            "guest starts, and Picture in Picture is off while it is on."
+                    )
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                }
+
                 Section("Microphone") {
                     Toggle(
                         "Microphone",

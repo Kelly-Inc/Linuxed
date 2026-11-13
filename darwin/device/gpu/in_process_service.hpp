@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <memory>
 #include <optional>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -86,6 +87,10 @@ public:
      * close an unrelated file. */
     [[nodiscard]] std::string takeConnectionName();
     [[nodiscard]] std::string takeInputConnectionName();
+    /* Delivers tablet and keyboard events, as a display's own input does, to
+     * the guest's VNC input device; dropped while no connection exists. */
+    void sendDisplayInput(
+        std::span<const uml::input::vnc::VncInputEvent> events) noexcept;
 
     /* The guest the connection served has gone. Ends that connection, which
      * resets the device and destroys the renderer with everything the old

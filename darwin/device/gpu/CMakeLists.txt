@@ -101,6 +101,11 @@ if(UML_TARGET_MACOS)
         vnc_display.cpp)
 else()
     list(APPEND _uml_gpu_display_sources native_display_ios.mm)
+    # The remote display serves the frame mirror, which an App Store runtime
+    # does not have.
+    if(NOT UML_APP_STORE_RUNTIME)
+        list(APPEND _uml_gpu_display_sources remote_display.cpp)
+    endif()
 endif()
 add_library(uml_gpu_display STATIC ${_uml_gpu_display_sources})
 uml_configure_gpu_component(uml_gpu_display)
@@ -123,6 +128,9 @@ if(UML_TARGET_MACOS)
         "-framework MetalKit"
         "-framework QuartzCore")
 else()
+    if(NOT UML_APP_STORE_RUNTIME)
+        target_link_libraries(uml_gpu_display PRIVATE UML::ThirdPartyVncServer)
+    endif()
     target_link_libraries(uml_gpu_display PRIVATE
         "-framework Accelerate"
         "-framework CoreVideo"

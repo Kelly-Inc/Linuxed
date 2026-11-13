@@ -5,6 +5,6 @@ platform	ios-simulator
 architecture	arm64
 deployment_target	27.0
 linkage	static
-components	pcre2,libffi,proxy-libintl,glib-ios,gvdb,libslirp
+components	pcre2,libffi,proxy-libintl,glib-ios,gvdb,libslirp,zlib,libvncserver
 source_manifest	dependencies/manifest.tsv
-common_recipe	ios-network-v1
+common_recipe	ios-network-v2

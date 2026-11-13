@@ -932,6 +932,9 @@ final class EmulatorLauncher: ObservableObject, SpaceRun {
 
     var isActive: Bool { phase == .running && !restarting }
 
+    /// The Settings switch for the remote display (EmulatorSettingsView).
+    static let remoteDisplayKey = "emulator.remoteDisplay"
+
     var guestName: String { runningGuestIsAndroid ? "Android" : "Linux" }
 
     fileprivate func start(
@@ -968,6 +971,12 @@ final class EmulatorLauncher: ObservableObject, SpaceRun {
         if startShortage != nil { startShortage = nil }
         runningGuestName = rootfsFilename
         runningGuestIsAndroid = selection.flavor == .android
+        // The runtime serves the remote display for a run that starts with it.
+        setenv(
+            "LINUXED_REMOTE_DISPLAY",
+            UserDefaults.standard.bool(forKey: Self.remoteDisplayKey) ? "1" : "0",
+            1
+        )
         guard linuxed_runtime_loader_select(
             selection.flavor.rawValue
         ) == 0 else {

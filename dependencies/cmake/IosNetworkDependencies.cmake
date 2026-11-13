@@ -12,7 +12,7 @@ endif()
 set(UML_IOS_NETWORK_DEPENDENCY_PREFIX
     "${_uml_ios_network_default_prefix}"
     CACHE PATH
-    "Verified GLib/libslirp prefix for Linuxed")
+    "Verified GLib/libslirp/LibVNCServer prefix for Linuxed")
 
 set(_uml_ios_network_include "${UML_IOS_NETWORK_DEPENDENCY_PREFIX}/include")
 set(_uml_ios_network_lib "${UML_IOS_NETWORK_DEPENDENCY_PREFIX}/lib")
@@ -22,6 +22,8 @@ set(_uml_ios_network_inputs
     "${_uml_ios_network_lib}/libintl.a"
     "${_uml_ios_network_lib}/libglib-2.0.a"
     "${_uml_ios_network_lib}/libslirp.a"
+    "${_uml_ios_network_lib}/libz.a"
+    "${_uml_ios_network_lib}/libvncserver.a"
     "${_uml_ios_network_include}/glib-2.0/glib.h"
     "${_uml_ios_network_include}/slirp/libslirp.h")
 foreach(_uml_ios_network_input IN LISTS _uml_ios_network_inputs)
@@ -72,6 +74,16 @@ _uml_import_static_dependency(slirp "${_uml_ios_network_lib}/libslirp.a"
     ALIAS UML::ThirdPartySlirp
     INCLUDES "${_uml_ios_network_include}/slirp"
     LINKS UML::ThirdPartyGlib "${_uml_sdk_resolv}")
+
+_uml_import_static_dependency(zlib "${_uml_ios_network_lib}/libz.a"
+    ALIAS UML::ThirdPartyZlib
+    INCLUDES "${_uml_ios_network_include}")
+
+# The remote display's server (darwin/device/gpu/remote_display.cpp).
+_uml_import_static_dependency(vnc_server "${_uml_ios_network_lib}/libvncserver.a"
+    ALIAS UML::ThirdPartyVncServer
+    INCLUDES "${_uml_ios_network_include}"
+    LINKS UML::ThirdPartyZlib Threads::Threads)
 
 add_custom_target(uml_ios_network_prefix_verify
     COMMAND "${CMAKE_COMMAND}"

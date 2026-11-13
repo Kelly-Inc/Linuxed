@@ -1,7 +1,8 @@
 #!/bin/sh
 # SPDX-License-Identifier: GPL-2.0-or-later
 #
-# Build the authenticated GLib/libslirp stack for arm64 iOS.
+# Build the authenticated GLib/libslirp stack, and the zlib and LibVNCServer
+# the remote display serves with, for arm64 iOS.
 # The script is offline: it accepts only the already verified dependency
 # sources maintained by dependencies/prepare.sh.
 set -eu
@@ -309,6 +310,48 @@ meson_setup "$BUILDS/libslirp" "$SOURCE_ROOT/libslirp" \
 	-Dfuzz-reproduce=false
 "$MESON" compile -C "$BUILDS/libslirp" -j "$JOBS"
 "$MESON" install -C "$BUILDS/libslirp"
+
+printf '%s\n' "building zlib 1.3.2 for $PLATFORM"
+"$CMAKE" -S "$SOURCE_ROOT/zlib" -B "$BUILDS/zlib" -G Ninja \
+	-DCMAKE_MAKE_PROGRAM="$NINJA" \
+	-DCMAKE_BUILD_TYPE=Release \
+	-DCMAKE_INSTALL_PREFIX="$STAGE" \
+	-DCMAKE_INSTALL_LIBDIR=lib \
+	-DCMAKE_SYSTEM_NAME=iOS \
+	-DCMAKE_OSX_SYSROOT="$CMAKE_SYSROOT" \
+	-DCMAKE_OSX_ARCHITECTURES=arm64 \
+	-DCMAKE_OSX_DEPLOYMENT_TARGET="$DEPLOYMENT_TARGET" \
+	-DCMAKE_TRY_COMPILE_TARGET_TYPE=STATIC_LIBRARY \
+	-DZLIB_BUILD_SHARED=OFF -DZLIB_BUILD_STATIC=ON -DZLIB_BUILD_TESTING=OFF
+"$CMAKE" --build "$BUILDS/zlib" --parallel "$JOBS"
+"$CMAKE" --install "$BUILDS/zlib"
+
+# The options are the macOS prefix's (dependencies/build.sh): the server
+# alone, with zlib for its ZRLE and Tight encodings and nothing else.
+printf '%s\n' "building LibVNCServer 0.9.15 for $PLATFORM"
+"$CMAKE" -S "$SOURCE_ROOT/libvncserver" -B "$BUILDS/libvncserver" -G Ninja \
+	-DCMAKE_MAKE_PROGRAM="$NINJA" \
+	-DCMAKE_BUILD_TYPE=Release \
+	-DCMAKE_INSTALL_PREFIX="$STAGE" \
+	-DCMAKE_INSTALL_LIBDIR=lib \
+	-DCMAKE_SYSTEM_NAME=iOS \
+	-DCMAKE_OSX_SYSROOT="$CMAKE_SYSROOT" \
+	-DCMAKE_OSX_ARCHITECTURES=arm64 \
+	-DCMAKE_OSX_DEPLOYMENT_TARGET="$DEPLOYMENT_TARGET" \
+	-DCMAKE_TRY_COMPILE_TARGET_TYPE=STATIC_LIBRARY \
+	-DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+	-DLIBVNCSERVER_INSTALL=ON -DBUILD_SHARED_LIBS=OFF \
+	-DWITH_EXAMPLES=OFF -DWITH_TESTS=OFF \
+	-DWITH_ZLIB=ON -DZLIB_LIBRARY="$STAGE/lib/libz.a" \
+	-DZLIB_INCLUDE_DIR="$STAGE/include" \
+	-DWITH_LZO=OFF -DWITH_JPEG=OFF -DWITH_PNG=OFF \
+	-DWITH_SDL=OFF -DWITH_GTK=OFF -DWITH_LIBSSHTUNNEL=OFF \
+	-DWITH_GNUTLS=OFF -DWITH_OPENSSL=OFF -DWITH_SYSTEMD=OFF \
+	-DWITH_GCRYPT=OFF -DWITH_FFMPEG=OFF \
+	-DWITH_TIGHTVNC_FILETRANSFER=OFF -DWITH_WEBSOCKETS=OFF \
+	-DWITH_SASL=OFF -DWITH_XCB=OFF -DWITH_QT=OFF
+"$CMAKE" --build "$BUILDS/libvncserver" --parallel "$JOBS"
+"$CMAKE" --install "$BUILDS/libvncserver"
 
 cp "$ROOT_DIR/dependencies/manifest.tsv" \
 	"$STAGE/share/uml-dependencies/manifest.tsv"
