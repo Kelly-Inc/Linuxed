@@ -189,7 +189,10 @@ void NativeDisplayState::commitResize(CGSize size) noexcept
         size.width, resizeNotifier.maximumDimension());
     const auto height = displayDimension(
         size.height, resizeNotifier.maximumDimension());
-    if (width && height &&
+    /* With automatic resize off the guest keeps the size it was configured
+     * with, across its restarts too: a host size is not even recorded, so no
+     * boot adopts it. */
+    if (width && height && geometryPolicy.autoResizeGuestEnabled() &&
         running.load(std::memory_order_acquire)) {
         latestSettledHostSize = {.width = *width, .height = *height};
         resizeNotifier.requestCommitted(*width, *height);
@@ -200,6 +203,8 @@ void NativeDisplayState::commitResize(CGSize size) noexcept
 
 void NativeDisplayState::scheduleResize(CGSize size) noexcept
 {
+    if (!geometryPolicy.autoResizeGuestEnabled())
+        return;
     const auto width = displayDimension(
         size.width, resizeNotifier.maximumDimension());
     const auto height = displayDimension(
