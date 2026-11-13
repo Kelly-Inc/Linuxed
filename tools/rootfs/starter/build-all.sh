@@ -139,7 +139,7 @@ if wants debian-13-minimal-armhf; then
 	sudo -n -- sh "$SCRIPT_DIR/armhf-run.sh" --check
 fi
 if wants debian-13-xfce || wants debian-13-phosh || \
-	wants debian-13-plasma-mobile; then
+	wants debian-13-plasma-mobile || wants debian-13-ztmetro; then
 	producer_require_host aarch64 mkfs.erofs
 fi
 
@@ -935,7 +935,8 @@ if wants alpine; then
 fi
 if wants debian-13-minimal || wants debian-13-plasma-wayland || \
 	wants debian-13-minimal-armhf || wants debian-13-xfce || \
-	wants debian-13-phosh || wants debian-13-plasma-mobile; then
+	wants debian-13-phosh || wants debian-13-plasma-mobile || \
+	wants debian-13-ztmetro; then
 	set -- "$@" --debian-suite "$DEBIAN_SUITE" \
 		--debian-version "$(cat "$work_dir/debian.version")"
 fi
