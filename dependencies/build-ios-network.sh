@@ -327,7 +327,8 @@ printf '%s\n' "building zlib 1.3.2 for $PLATFORM"
 "$CMAKE" --install "$BUILDS/zlib"
 
 # The options are the macOS prefix's (dependencies/build.sh): the server
-# alone, with zlib for its ZRLE and Tight encodings and nothing else.
+# alone, with zlib for its ZRLE and Tight encodings and nothing else. The SDK's
+# endian.h defines no __BYTE_ORDER, which rfbproto.h then reads as big-endian.
 printf '%s\n' "building LibVNCServer 0.9.15 for $PLATFORM"
 "$CMAKE" -S "$SOURCE_ROOT/libvncserver" -B "$BUILDS/libvncserver" -G Ninja \
 	-DCMAKE_MAKE_PROGRAM="$NINJA" \
@@ -341,6 +342,7 @@ printf '%s\n' "building LibVNCServer 0.9.15 for $PLATFORM"
 	-DCMAKE_TRY_COMPILE_TARGET_TYPE=STATIC_LIBRARY \
 	-DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
 	-DLIBVNCSERVER_INSTALL=ON -DBUILD_SHARED_LIBS=OFF \
+	-DLIBVNCSERVER_HAVE_ENDIAN_H=OFF \
 	-DWITH_EXAMPLES=OFF -DWITH_TESTS=OFF \
 	-DWITH_ZLIB=ON -DZLIB_LIBRARY="$STAGE/lib/libz.a" \
 	-DZLIB_INCLUDE_DIR="$STAGE/include" \

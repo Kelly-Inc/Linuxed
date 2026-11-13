@@ -66,32 +66,24 @@ struct RemoteDisplay::State {
             std::lock_guard lock(state->pendingMutex);
             state->pending.resize(
                 static_cast<std::size_t>(frameWidth) * frameHeight);
-            // BGRA bytes are the server format's 0xAARRGGBB words.
-            for (std::uint32_t row = 0; row < frameHeight; ++row)
-                std::memcpy(
-                    state->pending.data() +
-                        static_cast<std::size_t>(row) * frameWidth,
-                    base + row * rowBytes,
-                    static_cast<std::size_t>(frameWidth) * 4U);
+            /* The mirror's BGRA pixels in the server's default format, red in
+             * the low byte: red and blue trade places. */
+            for (std::uint32_t row = 0; row < frameHeight; ++row) {
+                const auto* source = reinterpret_cast<const std::uint32_t*>(
+                    base + row * rowBytes);
+                auto* destination = state->pending.data() +
+                    static_cast<std::size_t>(row) * frameWidth;
+                for (std::uint32_t column = 0; column < frameWidth; ++column) {
+                    const auto pixel = source[column];
+                    destination[column] = (pixel & 0xff00ff00U) |
+                        ((pixel >> 16) & 0xffU) | ((pixel & 0xffU) << 16);
+                }
+            }
             state->pendingWidth = frameWidth;
             state->pendingHeight = frameHeight;
             state->pendingFresh = true;
         }
         CVPixelBufferUnlockBaseAddress(buffer, kCVPixelBufferLock_ReadOnly);
-    }
-
-    void setFormat() noexcept
-    {
-        screen->serverFormat.bitsPerPixel = 32;
-        screen->serverFormat.depth = 24;
-        screen->serverFormat.bigEndian = FALSE;
-        screen->serverFormat.trueColour = TRUE;
-        screen->serverFormat.redMax = 255;
-        screen->serverFormat.greenMax = 255;
-        screen->serverFormat.blueMax = 255;
-        screen->serverFormat.redShift = 16;
-        screen->serverFormat.greenShift = 8;
-        screen->serverFormat.blueShift = 0;
     }
 
     /* Takes the newest frame into what is sent, marking only changed tiles. */
@@ -108,7 +100,6 @@ struct RemoteDisplay::State {
             rfbNewFramebuffer(screen,
                 reinterpret_cast<char*>(framebuffer.data()),
                 static_cast<int>(width), static_cast<int>(height), 8, 3, 4);
-            setFormat();
             rfbMarkRectAsModified(screen, 0, 0,
                 static_cast<int>(width), static_cast<int>(height));
             return;
@@ -242,7 +233,7 @@ RemoteDisplay::RemoteDisplay(
         static_cast<State*>(client->screen->screenData)
             ->handlePointer(buttons, x, y);
     };
-    state.setFormat();
+    // The default format: 32-bit pixels, 8 bits a channel, red lowest.
     rfbInitServer(screen);
     if (!rfbIsActive(screen) || screen->listenSock == RFB_INVALID_SOCKET) {
         rfbScreenCleanup(screen);
