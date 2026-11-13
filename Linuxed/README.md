@@ -156,7 +156,9 @@ With Remote display over USB on in Settings, the runtime serves the guest's
 display over VNC on the device's loopback port 5900
 (`darwin/device/gpu/remote_display.hpp`), and a computer reaches it through
 the USB tunnel (`iproxy 5900 5900`); the viewer's keyboard and mouse drive the
-guest's VNC input devices. It takes the frame mirror, so Picture in Picture
+guest's VNC input devices. The guest then runs at the resolution chosen beside
+the setting (1920 × 1080 unless another is picked), fitted on the phone and
+not resized with it. It takes the frame mirror, so Picture in Picture
 does not start while it runs, and the App Store runtime has none of it.
 
 A Linux guest's SLiRP link forwards the device's loopback port 2222 to the

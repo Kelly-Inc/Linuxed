@@ -22,7 +22,7 @@ public:
     struct Options {
         std::uint16_t port {5900};
         /* The widest frame served; a larger guest display is scaled down. */
-        std::uint32_t maximumWidth {1920};
+        std::uint32_t maximumWidth {2560};
         std::uint32_t framesPerSecond {60};
     };
 

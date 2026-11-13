@@ -934,6 +934,20 @@ final class EmulatorLauncher: ObservableObject, SpaceRun {
 
     /// The Settings switch for the remote display (EmulatorSettingsView).
     static let remoteDisplayKey = "emulator.remoteDisplay"
+    /// Its resolution, "WIDTHxHEIGHT", or "phone" for the phone's own.
+    static let remoteDisplaySizeKey = "emulator.remoteDisplaySize"
+    static let remoteDisplaySizes = ["1280x720", "1920x1080", "2560x1440", "phone"]
+
+    /// The guest's size while a remote display runs, nil to follow the phone.
+    static func remoteDisplaySize(
+        defaults: UserDefaults = .standard
+    ) -> (width: UInt32, height: UInt32)? {
+        guard defaults.bool(forKey: remoteDisplayKey) else { return nil }
+        let choice = defaults.string(forKey: remoteDisplaySizeKey) ?? "1920x1080"
+        let parts = choice.split(separator: "x").compactMap { UInt32($0) }
+        guard parts.count == 2 else { return nil }
+        return (parts[0], parts[1])
+    }
 
     var guestName: String { runningGuestIsAndroid ? "Android" : "Linux" }
 
@@ -1032,14 +1046,21 @@ final class EmulatorLauncher: ObservableObject, SpaceRun {
         let size = GuestInputCoordinateSpace.boundedDisplaySize(
             geometry.pixelSize
         )
-        let width = UInt32(size.width.rounded(.down))
-        let height = UInt32(size.height.rounded(.down))
+        var width = UInt32(size.width.rounded(.down))
+        var height = UInt32(size.height.rounded(.down))
+        // A remote display serves a computer's screen: the guest takes the
+        // size chosen in Settings and keeps it whatever the phone does.
+        let remoteSize = Self.remoteDisplaySize()
+        if let remoteSize {
+            width = remoteSize.width
+            height = remoteSize.height
+        }
         view.setGuestDisplay(width: width, height: height)
         UIApplication.shared.isIdleTimerDisabled = true
         let guestMemoryMiB = UInt32(configuration.guestMemoryMiB)
         let vCPUCount = UInt32(configuration.vCPUCount)
-        let dotsPerInch = geometry.dotsPerInch
-        let autoResizeGuest = configuration.autoResizeGuest
+        let dotsPerInch = remoteSize == nil ? geometry.dotsPerInch : 96
+        let autoResizeGuest = remoteSize == nil && configuration.autoResizeGuest
         // The run occupies its thread for the guest's whole life and the GPU
         // service reaches the main queue while it starts, so it must not be the
         // main thread. Own the thread outright rather than depending on where a

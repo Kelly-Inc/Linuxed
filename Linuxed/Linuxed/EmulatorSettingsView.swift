@@ -10,6 +10,8 @@ struct EmulatorSettingsView: View {
     /// The guest's display over VNC on loopback port 5900, for a computer on
     /// the USB tunnel. EmulatorLauncher reads it as each run starts.
     @AppStorage(EmulatorLauncher.remoteDisplayKey) private var remoteDisplay = false
+    @AppStorage(EmulatorLauncher.remoteDisplaySizeKey)
+    private var remoteDisplaySize = "1920x1080"
 
     @State private var configuration: EmulatorConfiguration
     @State private var backgroundMode: BackgroundMode
@@ -154,10 +156,21 @@ struct EmulatorSettingsView: View {
                 Section("Remote display") {
                     Toggle("Remote display over USB", isOn: $remoteDisplay)
                         .accessibilityIdentifier("remoteDisplayToggle")
+                    if remoteDisplay {
+                        Picker("Resolution", selection: $remoteDisplaySize) {
+                            ForEach(EmulatorLauncher.remoteDisplaySizes, id: \.self) { size in
+                                Text(size == "phone" ? "Phone's own" :
+                                    size.replacingOccurrences(of: "x", with: " × "))
+                                    .tag(size)
+                            }
+                        }
+                        .accessibilityIdentifier("remoteDisplaySizePicker")
+                    }
                     Text(
                         "Control the guest from a computer: connect the phone by USB, " +
                             "run iproxy 5900 5900 on the computer, then open a VNC " +
-                            "viewer at localhost:5900. It applies the next time the " +
+                            "viewer at localhost:5900. The guest runs at the chosen resolution, " +
+                            "shown fitted on the phone. It applies the next time the " +
                             "guest starts, and Picture in Picture is off while it is on."
                     )
                     .font(.footnote)
