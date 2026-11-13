@@ -13,7 +13,7 @@ fail()
 	echo "debian-$session setup: $*" >&2
 	exit 1
 }
-case "$session" in xfce|phosh|plasma-mobile) ;; *) fail "unknown session" ;; esac
+case "$session" in xfce|phosh|plasma-mobile|ztmetro) ;; *) fail "unknown session" ;; esac
 
 install -d -m 0755 /etc/udev/rules.d
 cat > /etc/udev/rules.d/59-linuxed-input.rules <<'RULES'
@@ -101,6 +101,24 @@ plasma-mobile)
 	printf '%s\n' '[Basic Settings]' 'Indexing-Enabled=false' \
 		> /etc/xdg/baloofilerc
 	display_manager=sddm
+	;;
+ztmetro)
+	# greetd starts the ztMETRO compositor as user, as ztOS itself does.
+	[ -x /usr/local/bin/ztmetro ] || fail "the image has no ztMETRO shell"
+	install -d -m 0755 /etc/greetd
+	cat > /etc/greetd/config.toml <<'CONFIG'
+[terminal]
+vt = "next"
+
+[default_session]
+command = "/usr/local/bin/ztmetro-session"
+user = "user"
+
+[initial_session]
+command = "/usr/local/bin/ztmetro-session"
+user = "user"
+CONFIG
+	display_manager=greetd
 	;;
 esac
 systemctl enable "$display_manager.service" ssh.service

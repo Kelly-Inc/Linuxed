@@ -1,0 +1,20 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Build the Debian 13 ztMETRO image (the ztOS Metro shell), attach it to its
+# own release and upload it to the R2 bucket. Started by hand: it is not part
+# of the IPA build.
+name: Build ztMETRO image
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  image:
+    uses: ./.github/workflows/boot-base.yml
+    secrets: inherit
+    with:
+      products: debian-13-ztmetro
+      release: debian-ztmetro
+      r2: true

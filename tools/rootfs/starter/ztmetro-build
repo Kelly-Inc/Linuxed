@@ -1,0 +1,82 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-2.0-or-later
+#
+# Builds the ztMETRO shell (Zerone Laboratories' ztOS, GPL-3.0-only) and its
+# own apps inside the debian-13-ztmetro image root. build-all.sh runs it once
+# as root in the chroot, with the verified source archives in /tmp/src.
+# Debian 13 has neither wlroots 0.20 nor the pixman it needs, so both are
+# built into /usr/local first. The phone-hardware daemons (modem, sensors,
+# touch keys) are left out: the guest has none of that hardware.
+set -eu
+
+fail()
+{
+	echo "ztmetro-build: $*" >&2
+	exit 1
+}
+
+src=/tmp/src
+[ -d "$src" ] || fail "no sources in $src"
+cd "$src"
+
+build_deps="build-essential pkg-config meson ninja-build
+	libwayland-dev wayland-protocols libxkbcommon-dev libcairo2-dev
+	libpango1.0-dev librsvg2-dev libgdk-pixbuf-2.0-dev libdrm-dev libegl-dev
+	libgles-dev libgbm-dev libinput-dev libseat-dev libudev-dev hwdata
+	libdisplay-info-dev liblcms2-dev libpulse-dev libjson-c-dev libsystemd-dev
+	libglib2.0-dev libpolkit-agent-1-dev"
+# shellcheck disable=SC2086
+DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends $build_deps
+
+prefix=/usr/local
+export PKG_CONFIG_PATH="$prefix/lib/aarch64-linux-gnu/pkgconfig:$prefix/lib/pkgconfig:$prefix/share/pkgconfig"
+
+tar -xf pixman-*.tar.gz
+meson setup pixman-build pixman-*/ --prefix="$prefix" --buildtype=release \
+	-Dtests=disabled -Ddemos=disabled
+ninja -C pixman-build install
+
+tar -xf wlroots-*.tar.gz
+meson setup wlroots-build wlroots-*/ --prefix="$prefix" --buildtype=release \
+	-Dexamples=false -Dxwayland=disabled -Dxcb-errors=disabled \
+	-Drenderers=gles2 -Dbackends=drm,libinput -Dsession=enabled \
+	-Dlibliftoff=disabled
+ninja -C wlroots-build install
+ldconfig
+
+tar -xf ztos-*.tar.gz
+cd ztOS-*/ztmetro
+programs="ztmetro apps/ztapps settings/ztsettings files/ztfiles
+	devices/ztdevices power/ztpower sound/ztsound splash/ztos-splash
+	sounds/ztos-sounds auth/ztos-polkit-agent"
+# shellcheck disable=SC2086
+make -j"$(nproc)" $programs
+
+for program in $programs; do
+	install -Dm755 "$program" "$prefix/bin/${program##*/}"
+done
+install -Dm755 ztmetro-session "$prefix/bin/ztmetro-session"
+for app in files/ztfiles devices/ztdevices power/ztpower sound/ztsound; do
+	name=${app##*/}
+	install -Dm644 "$app.desktop" "$prefix/share/applications/$name.desktop"
+	[ ! -f "$app.svg" ] ||
+		install -Dm644 "$app.svg" "$prefix/share/icons/hicolor/scalable/apps/$name.svg"
+done
+[ ! -d assets ] || cp -a assets "$prefix/share/ztmetro-assets"
+
+# Keep every package that a built program loads a library from, then drop
+# the build tools: the programs live in /usr/local, which dpkg does not see.
+keep=$(for binary in "$prefix"/bin/* "$prefix"/lib/aarch64-linux-gnu/*.so*; do
+	[ -f "$binary" ] && ldd "$binary" 2>/dev/null || true
+done | awk '/=> \//{print $3}' | sort -u | grep -v "^$prefix/" |
+	xargs -r dpkg -S 2>/dev/null | cut -d: -f1 | sort -u)
+# shellcheck disable=SC2086
+[ -z "$keep" ] || apt-mark manual $keep >/dev/null
+# shellcheck disable=SC2086
+apt-mark auto $build_deps >/dev/null
+DEBIAN_FRONTEND=noninteractive apt-get autoremove --purge -y
+for binary in "$prefix"/bin/ztmetro "$prefix"/bin/ztsettings; do
+	! ldd "$binary" | grep -q 'not found' || fail "$binary lost a library"
+done
+cd /
+rm -rf "$src"

@@ -25,6 +25,10 @@ passwordless `sudo` for `user`, sshd for the app's loopback port 2222, the
 NetSurf browser, `gpucheck`, a fastfetch that names the host Apple device
 ([`linuxed-host`](linuxed-host)), a root shell on the `ttyS0` console,
 and the Linuxed input rules ([`debian-desktop-setup`](debian-desktop-setup)).
+`debian-13-ztmetro` builds the ztMETRO shell of Zerone Laboratories' ztOS
+(GPL-3.0-only) from a pinned commit, on wlroots 0.20 and pixman built into
+`/usr/local` ([`ztmetro-build`](ztmetro-build)); greetd starts it as `user`, and
+`.github/workflows/ztmetro.yml` builds it on demand.
 A `wallpaper.png` beside the setup script, when present, becomes the
 session's default backdrop. The images mask background work a phone guest has
 no use for, turn off animations and indexers, and keep the

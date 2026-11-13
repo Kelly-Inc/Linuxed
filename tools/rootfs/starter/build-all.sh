@@ -13,6 +13,15 @@ BUSYBOX_VERSION=1.38.0
 BUSYBOX_SHA256=34f9ea6ff8636f2c9241153b9114eefa9e65674a45318ae1ef95bb5f31c53bb2
 ALPINE_VERSION=3.24.2
 ALPINE_SHA256=9bf70a7f18ea44094cbb5f70c58f9af129c8214745743db0e68e5502cc2ce773
+# debian-13-ztmetro builds the ztMETRO shell from ztOS at this commit, on the
+# wlroots and pixman releases it needs, which Debian 13 does not have.
+ZTOS_COMMIT=b3bff4734727cea7e6d9c5092abdce415516daf2
+ZTOS_SHA256=34ce52fe8d57abd0e3df9e044a6031cee454df8f1823f6abc7a1a25cd248e58d
+WLROOTS_VERSION=0.20.2
+WLROOTS_URL=https://gitlab.freedesktop.org/-/project/12103/uploads/6a56af9eafb5240d2823772aeb1e2e7d/wlroots-0.20.2.tar.gz
+WLROOTS_SHA256=80c567d2ed4efb2cfa6b077f22c7a710d9c78ba4e185a75e8694001114af0733
+PIXMAN_VERSION=0.46.4
+PIXMAN_SHA256=d09c44ebc3bd5bee7021c79f922fe8fb2fb57f7320f55e97ff9914d2346a591c
 DEBIAN_SUITE=trixie
 DEBIAN_MIRROR=http://deb.debian.org/debian
 # The armhf twin of debian-13-minimal installs the same package list through
@@ -23,7 +32,7 @@ DEBIAN_MIRROR=http://deb.debian.org/debian
 # provides. --exclude cannot drop it, because the dependency pulls it back.
 ARMHF_INCLUDE=systemd-sysv,systemd-resolved,udev,kmod,dbus,ca-certificates,libbpf1
 DEFAULT_PRODUCTS="boot-base-aarch64 boot-base-x86_64 alpine debian-13-minimal debian-13-plasma-wayland"
-KNOWN_PRODUCTS="$DEFAULT_PRODUCTS debian-13-minimal-armhf debian-13-xfce debian-13-phosh debian-13-plasma-mobile"
+KNOWN_PRODUCTS="$DEFAULT_PRODUCTS debian-13-minimal-armhf debian-13-xfce debian-13-phosh debian-13-plasma-mobile debian-13-ztmetro"
 
 fail()
 {
@@ -45,10 +54,10 @@ not exist; the completed release directory is published atomically.
 release holds every product but the armhf and desktop EROFS ones:
   boot-base-aarch64 boot-base-x86_64 alpine debian-13-minimal
   debian-13-plasma-wayland debian-13-minimal-armhf debian-13-xfce
-  debian-13-phosh debian-13-plasma-mobile
+  debian-13-phosh debian-13-plasma-mobile debian-13-ztmetro
 
-debian-13-xfce, debian-13-phosh and debian-13-plasma-mobile are bare EROFS
-images for Linuxed; they need mkfs.erofs.
+debian-13-xfce, debian-13-phosh, debian-13-plasma-mobile and
+debian-13-ztmetro are bare EROFS images for Linuxed; they need mkfs.erofs.
 
 debian-13-minimal-armhf runs ARM programs under qemu-arm (Debian's qemu-user)
 in private namespaces.
@@ -731,6 +740,11 @@ build_debian_desktop()
 		packages="plasma-mobile sddm maliit-keyboard konsole xwayland"
 		recommends=
 		;;
+	ztmetro)
+		# ztMETRO asks for Segoe UI and falls back to Open Sans.
+		packages="greetd fonts-open-sans fonts-noto-core brightnessctl
+			pulseaudio-utils foot"
+		;;
 	esac
 	printf '%s\n' "==> Building Debian 13 $session EROFS image"
 	root=$roots_dir/debian-$session
@@ -749,6 +763,23 @@ build_debian_desktop()
 		libpam-systemd libglib2.0-bin dbus-user-session fonts-dejavu-core \
 		adwaita-icon-theme sudo openssh-server iputils-ping netsurf-gtk \
 		fastfetch nano htop curl wget zsh
+	if [ "$session" = ztmetro ]; then
+		download_checked \
+			"https://github.com/Zerone-Laboratories/ztOS/archive/$ZTOS_COMMIT.tar.gz" \
+			"$ZTOS_SHA256" "$sources_dir/ztos-$ZTOS_COMMIT.tar.gz"
+		download_checked "$WLROOTS_URL" "$WLROOTS_SHA256" \
+			"$sources_dir/wlroots-$WLROOTS_VERSION.tar.gz"
+		download_checked \
+			"https://cairographics.org/releases/pixman-$PIXMAN_VERSION.tar.gz" \
+			"$PIXMAN_SHA256" "$sources_dir/pixman-$PIXMAN_VERSION.tar.gz"
+		as_root install -d -m 0755 "$root/tmp/src"
+		as_root install -m 0644 "$sources_dir/ztos-$ZTOS_COMMIT.tar.gz" \
+			"$sources_dir/wlroots-$WLROOTS_VERSION.tar.gz" \
+			"$sources_dir/pixman-$PIXMAN_VERSION.tar.gz" "$root/tmp/src/"
+		as_root install -m 0755 "$SCRIPT_DIR/ztmetro-build" "$root/tmp/ztmetro-build"
+		as_root chroot "$root" /bin/sh /tmp/ztmetro-build
+		as_root rm -f "$root/tmp/ztmetro-build"
+	fi
 	as_root install -m 0755 "$SCRIPT_DIR/debian-desktop-setup" "$root/tmp/debian-desktop-setup"
 	as_root install -m 0755 "$SCRIPT_DIR/linuxed-host" "$root/tmp/linuxed-host"
 	if [ -f "$SCRIPT_DIR/wallpaper.png" ]; then
@@ -844,6 +875,9 @@ if wants debian-13-phosh; then
 fi
 if wants debian-13-plasma-mobile; then
 	build_debian_desktop plasma-mobile
+fi
+if wants debian-13-ztmetro; then
+	build_debian_desktop ztmetro
 fi
 if wants debian-13-minimal; then
 	build_debian_minimal
