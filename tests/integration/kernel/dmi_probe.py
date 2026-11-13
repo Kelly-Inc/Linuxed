@@ -21,7 +21,7 @@ import struct
 import subprocess
 
 failures = 0
-VENDOR = "Kernarium"
+VENDOR = "Linuxed"
 PRODUCT = "Virtual Machine"
 EXPECTED_TYPES = [0, 1, 2, 3, 4, 16, 17, 19, 32, 127]
 

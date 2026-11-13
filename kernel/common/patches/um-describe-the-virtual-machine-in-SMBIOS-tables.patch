@@ -107,7 +107,7 @@ index 91ca504ee7c0373209921d732188d8de2d662b68..e60afe7d2769b4eff2b235a90018a2a9
  obj-$(CONFIG_EARLY_PRINTK) += early_printk.o
 diff --git a/arch/um/kernel/dmi.c b/arch/um/kernel/dmi.c
 new file mode 100644
-index 0000000000000000000000000000000000000000..a000447907bdda32b6828648f09d4abcfa4bfb73
+index 0000000000000000000000000000000000000000..f0da8b7d26c2966067606f6c488c7e4977c5182e
 --- /dev/null
 +++ b/arch/um/kernel/dmi.c
 @@ -0,0 +1,496 @@
@@ -152,7 +152,7 @@ index 0000000000000000000000000000000000000000..a000447907bdda32b6828648f09d4abc
 +#define UML_DMI_SCAN_START	0xF0000
 +#define UML_DMI_SCAN_SIZE	0x10000
 +
-+#define UML_DMI_VENDOR		"Kernarium"
++#define UML_DMI_VENDOR		"Linuxed"
 +#define UML_DMI_PRODUCT		"Virtual Machine"
 +#define UML_DMI_FAMILY		"Virtual Machine"
 +
