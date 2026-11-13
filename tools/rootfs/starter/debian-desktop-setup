@@ -152,21 +152,59 @@ esac
 CHECK
 chmod 0755 /usr/local/bin/gpucheck
 
-# fastfetch shows the Apple logo, names the Apple device as the host, and the
-# display after the renderer; the rest is fastfetch's default module list.
-install -m 0755 /tmp/kellylinux-host /usr/libexec/kellylinux-host
+# The default fastfetch layout: the Apple logo, then the clock, the system,
+# the hardware and the phone's battery.
+install -m 0755 /tmp/linuxed-host /usr/libexec/linuxed-host
 install -d -m 0755 /etc/xdg/fastfetch
 cat > /etc/xdg/fastfetch/config.jsonc <<'CONFIG'
 {
-  "logo": { "source": "macos" },
+  "$schema": "https://github.com/fastfetch-cli/fastfetch/raw/dev/doc/json_schema.json",
+  "logo": {
+    "source": "macos",
+    "padding": {
+      "top": 1,
+      "left": 1,
+      "right": 3
+    }
+  },
+  "display": {
+    "separator": "  ",
+    "color": {
+      "keys": "blue",
+      "title": "white"
+    }
+  },
   "modules": [
-    "title", "separator", "os",
-    { "type": "command", "key": "Host", "text": "/usr/libexec/kellylinux-host" },
-    "kernel", "uptime", "packages", "shell",
-    { "type": "display", "key": "Display (KellyRender)" },
-    "de", "wm", "wmtheme", "theme", "icons", "font", "cursor", "terminal",
-    "terminalfont", "cpu", "gpu", "memory", "swap", "disk", "localip",
-    "battery", "poweradapter", "locale", "break", "colors"
+    "break",
+    "title",
+    {
+      "type": "custom",
+      "format": "───────────────────────"
+    },
+    "break",
+    { "type": "datetime", "key": "Clock  " },
+    "break",
+    { "type": "OS",      "key": "OS    " },
+    { "type": "Kernel",  "key": "Kernel" },
+    { "type": "Uptime",  "key": "Uptime" },
+    { "type": "Shell",   "key": "Shell " },
+    "break",
+    { "type": "CPU",     "key": "CPU   " },
+    { "type": "GPU",     "key": "GPU   " },
+    { "type": "Memory",  "key": "Memory" },
+    {
+      "type": "disk",
+      "key": "Disk  ",
+      "folders": "/",
+      "format": "{1} / {2} ({3})"
+    },
+    { "type": "Battery", "key": "Battery " },
+    "break",
+    {
+      "type": "colors",
+      "symbol": "circle"
+    },
+    "break"
   ]
 }
 CONFIG
