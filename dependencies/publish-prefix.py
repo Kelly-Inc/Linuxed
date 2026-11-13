@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-2.0-or-later
-"""Publish a staged directory with one of Darwin's atomic renames.
+"""Publish a staged directory with one of Darwin's (or Linux's) atomic renames.
 
 Without --swap the rename is exclusive (RENAME_EXCL): creating DESTINATION
 and moving SOURCE there are one operation, so it never replaces, or moves
@@ -44,10 +44,22 @@ def main(argv: list[str]) -> int:
         return 2
 
     libc = ctypes.CDLL(None, use_errno=True)
-    rename = libc.renamex_np
-    rename.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.c_uint]
-    rename.restype = ctypes.c_int
-    if rename(os.fsencode(source), os.fsencode(destination), flags) == 0:
+    if hasattr(libc, "renamex_np"):
+        rename = libc.renamex_np
+        rename.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.c_uint]
+        rename.restype = ctypes.c_int
+        done = rename(os.fsencode(source), os.fsencode(destination), flags)
+    else:
+        # Linux has the same two renames as renameat2's NOREPLACE and EXCHANGE.
+        linux_flags = {RENAME_EXCL: 1, RENAME_SWAP: 2}[flags]
+        at_fdcwd = -100
+        rename = libc.renameat2
+        rename.argtypes = [ctypes.c_int, ctypes.c_char_p, ctypes.c_int,
+                           ctypes.c_char_p, ctypes.c_uint]
+        rename.restype = ctypes.c_int
+        done = rename(at_fdcwd, os.fsencode(source), at_fdcwd,
+                      os.fsencode(destination), linux_flags)
+    if done == 0:
         return 0
 
     error = ctypes.get_errno()
