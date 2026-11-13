@@ -4,9 +4,11 @@
 # Builds the ztMETRO shell (Zerone Laboratories' ztOS, GPL-3.0-only) and its
 # own apps inside the debian-13-ztmetro image root. build-all.sh runs it once
 # as root in the chroot, with the verified source archives in /tmp/src.
-# Debian 13 has neither wlroots 0.20 nor the pixman it needs, so both are
-# built into /usr/local first. The phone-hardware daemons (modem, sensors,
-# touch keys) are left out: the guest has none of that hardware.
+# wlroots 0.20 needs newer Wayland, wayland-protocols, libdrm, xkbcommon
+# and pixman than Debian 13 has, so all of them are built into /usr/local
+# first; each stays compatible with the system's programs. The
+# phone-hardware daemons (modem, sensors, touch keys) are left out: the guest
+# has none of that hardware.
 set -eu
 
 fail()
@@ -19,7 +21,8 @@ src=/tmp/src
 [ -d "$src" ] || fail "no sources in $src"
 cd "$src"
 
-build_deps="build-essential pkg-config meson ninja-build
+build_deps="build-essential pkg-config meson ninja-build bison libffi-dev
+	libexpat1-dev libxml2-dev xkb-data
 	libwayland-dev wayland-protocols libxkbcommon-dev libcairo2-dev
 	libpango1.0-dev librsvg2-dev libgdk-pixbuf-2.0-dev libdrm-dev libegl-dev
 	libgles-dev libgbm-dev libinput-dev libseat-dev libudev-dev hwdata
@@ -31,18 +34,38 @@ DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends $build
 prefix=/usr/local
 export PKG_CONFIG_PATH="$prefix/lib/aarch64-linux-gnu/pkgconfig:$prefix/lib/pkgconfig:$prefix/share/pkgconfig"
 
+# meson_build NAME SOURCE OPTION...: builds and installs one release.
+meson_build()
+{
+	name=$1
+	source=$2
+	shift 2
+	meson setup "$name-build" "$source" --prefix="$prefix" \
+		--buildtype=release --wrap-mode=nodownload "$@"
+	ninja -C "$name-build" install
+	ldconfig
+}
+
+for archive in wayland-1.*.tar.xz wayland-protocols-*.tar.xz libdrm-*.tar.xz \
+	libxkbcommon-*.tar.gz; do
+	tar -xf "$archive"
+done
+meson_build wayland wayland-1.*/ -Ddocumentation=false -Dtests=false
+meson_build wayland-protocols wayland-protocols-*/ -Dtests=false
+meson_build libdrm libdrm-*/ -Dtests=false -Dvalgrind=disabled \
+	-Dintel=disabled -Dcairo-tests=disabled -Dman-pages=disabled
+# Every program loads this xkbcommon, so it reads Debian's keyboard layouts.
+meson_build xkbcommon libxkbcommon-*/ -Denable-x11=false -Denable-docs=false \
+	-Denable-tools=false -Denable-xkbregistry=false -Denable-bash-completion=false \
+	-Dxkb-config-root=/usr/share/X11/xkb -Dx-locale-root=/usr/share/X11/locale
+
 tar -xf pixman-*.tar.gz
-meson setup pixman-build pixman-*/ --prefix="$prefix" --buildtype=release \
-	-Dtests=disabled -Ddemos=disabled
-ninja -C pixman-build install
+meson_build pixman pixman-*/ -Dtests=disabled -Ddemos=disabled
 
 tar -xf wlroots-*.tar.gz
-meson setup wlroots-build wlroots-*/ --prefix="$prefix" --buildtype=release \
-	-Dexamples=false -Dxwayland=disabled -Dxcb-errors=disabled \
-	-Drenderers=gles2 -Dbackends=drm,libinput -Dsession=enabled \
-	-Dlibliftoff=disabled
-ninja -C wlroots-build install
-ldconfig
+meson_build wlroots wlroots-*/ -Dexamples=false -Dxwayland=disabled \
+	-Dxcb-errors=disabled -Drenderers=gles2 -Dbackends=drm,libinput \
+	-Dsession=enabled -Dlibliftoff=disabled
 
 tar -xf ztos-*.tar.gz
 cd ztOS-*/ztmetro

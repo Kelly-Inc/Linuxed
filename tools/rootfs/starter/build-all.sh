@@ -22,6 +22,14 @@ WLROOTS_URL=https://gitlab.freedesktop.org/-/project/12103/uploads/6a56af9eafb52
 WLROOTS_SHA256=80c567d2ed4efb2cfa6b077f22c7a710d9c78ba4e185a75e8694001114af0733
 PIXMAN_VERSION=0.46.4
 PIXMAN_SHA256=d09c44ebc3bd5bee7021c79f922fe8fb2fb57f7320f55e97ff9914d2346a591c
+WAYLAND_URL=https://gitlab.freedesktop.org/-/project/121/uploads/5f5d2e19a230e8b8250d9a7c2f280846/wayland-1.26.0.tar.xz
+WAYLAND_SHA256=64176eaa46e4969903e286f8e5ef8331affc17fdf03ac9b58381d2b23162b7a3
+WAYLAND_PROTOCOLS_URL=https://gitlab.freedesktop.org/-/project/2891/uploads/b09ec29f7a671bffbfa8896065864a04/wayland-protocols-1.50.tar.xz
+WAYLAND_PROTOCOLS_SHA256=4460c20cfcf68b994a5ee206ed15fc19ad312f16c96075186e83b0e3f4aa48a5
+LIBDRM_VERSION=2.4.134
+LIBDRM_SHA256=ac5e74d157830eb8bee44c6a6bf3ad49774ef0dd2a72bdad74a8f20308b52a95
+XKBCOMMON_VERSION=1.13.2
+XKBCOMMON_SHA256=acc4d5f7c3cbba5f9f8d08d8bdbeede84ecede46792f47929aa9321873385528
 DEBIAN_SUITE=trixie
 DEBIAN_MIRROR=http://deb.debian.org/debian
 # The armhf twin of debian-13-minimal installs the same package list through
@@ -772,10 +780,24 @@ build_debian_desktop()
 		download_checked \
 			"https://cairographics.org/releases/pixman-$PIXMAN_VERSION.tar.gz" \
 			"$PIXMAN_SHA256" "$sources_dir/pixman-$PIXMAN_VERSION.tar.gz"
+		download_checked "$WAYLAND_URL" "$WAYLAND_SHA256" \
+			"$sources_dir/${WAYLAND_URL##*/}"
+		download_checked "$WAYLAND_PROTOCOLS_URL" "$WAYLAND_PROTOCOLS_SHA256" \
+			"$sources_dir/${WAYLAND_PROTOCOLS_URL##*/}"
+		download_checked \
+			"https://dri.freedesktop.org/libdrm/libdrm-$LIBDRM_VERSION.tar.xz" \
+			"$LIBDRM_SHA256" "$sources_dir/libdrm-$LIBDRM_VERSION.tar.xz"
+		download_checked \
+			"https://github.com/xkbcommon/libxkbcommon/archive/refs/tags/xkbcommon-$XKBCOMMON_VERSION.tar.gz" \
+			"$XKBCOMMON_SHA256" "$sources_dir/libxkbcommon-$XKBCOMMON_VERSION.tar.gz"
 		as_root install -d -m 0755 "$root/tmp/src"
 		as_root install -m 0644 "$sources_dir/ztos-$ZTOS_COMMIT.tar.gz" \
 			"$sources_dir/wlroots-$WLROOTS_VERSION.tar.gz" \
-			"$sources_dir/pixman-$PIXMAN_VERSION.tar.gz" "$root/tmp/src/"
+			"$sources_dir/pixman-$PIXMAN_VERSION.tar.gz" \
+			"$sources_dir/${WAYLAND_URL##*/}" \
+			"$sources_dir/${WAYLAND_PROTOCOLS_URL##*/}" \
+			"$sources_dir/libdrm-$LIBDRM_VERSION.tar.xz" \
+			"$sources_dir/libxkbcommon-$XKBCOMMON_VERSION.tar.gz" "$root/tmp/src/"
 		as_root install -m 0755 "$SCRIPT_DIR/ztmetro-build" "$root/tmp/ztmetro-build"
 		as_root chroot "$root" /bin/sh /tmp/ztmetro-build
 		as_root rm -f "$root/tmp/ztmetro-build"
