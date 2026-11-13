@@ -750,7 +750,7 @@ build_debian_desktop()
 		adwaita-icon-theme sudo openssh-server iputils-ping netsurf-gtk \
 		fastfetch nano htop curl wget zsh
 	as_root install -m 0755 "$SCRIPT_DIR/debian-desktop-setup" "$root/tmp/debian-desktop-setup"
-	as_root install -m 0755 "$SCRIPT_DIR/kellylinux-host" "$root/tmp/kellylinux-host"
+	as_root install -m 0755 "$SCRIPT_DIR/linuxed-host" "$root/tmp/linuxed-host"
 	if [ -f "$SCRIPT_DIR/wallpaper.png" ]; then
 		as_root install -m 0644 "$SCRIPT_DIR/wallpaper.png" "$root/tmp/wallpaper.png"
 	fi

@@ -74,7 +74,7 @@ command = "phosh-session"
 user = "user"
 CONFIG
 	# user has no password, so a lock screen could never be unlocked.
-	cat > /usr/share/glib-2.0/schemas/80-kellylinux-lock.gschema.override <<'OVERRIDE'
+	cat > /usr/share/glib-2.0/schemas/80-linuxed-lock.gschema.override <<'OVERRIDE'
 [org.gnome.desktop.screensaver]
 lock-enabled=false
 
@@ -126,7 +126,7 @@ for unit in tracker-miner-fs-3.service tracker-extract-3.service \
 done
 install -d -m 0755 /etc/systemd/journald.conf.d
 printf '%s\n' '[Journal]' 'Storage=volatile' 'RuntimeMaxUse=16M' \
-	> /etc/systemd/journald.conf.d/50-kellylinux.conf
+	> /etc/systemd/journald.conf.d/50-linuxed.conf
 
 # Linuxed's console is ttyS0; its getty logs root in, while the shared
 # Debian base's hvc0 getty waits on a device Linuxed lacks.
@@ -231,7 +231,7 @@ PREFS
 # workspace shows it without per-output keys; Phosh reads GNOME's setting,
 # and Plasma's default wallpaper package takes it as its only image.
 if [ -f /tmp/wallpaper.png ]; then
-	wallpaper=/usr/share/backgrounds/kellylinux.png
+	wallpaper=/usr/share/backgrounds/linuxed.png
 	install -D -m 0644 /tmp/wallpaper.png "$wallpaper"
 	case "$session" in
 	xfce)
@@ -245,7 +245,7 @@ if [ -f /tmp/wallpaper.png ]; then
 		done
 		;;
 	phosh)
-		cat > /usr/share/glib-2.0/schemas/90-kellylinux.gschema.override <<OVERRIDE
+		cat > /usr/share/glib-2.0/schemas/90-linuxed.gschema.override <<OVERRIDE
 [org.gnome.desktop.background]
 picture-uri='file://$wallpaper'
 picture-uri-dark='file://$wallpaper'

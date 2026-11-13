@@ -1,8 +1,8 @@
 #!/bin/sh
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Name the Apple device the guest runs on, from the model identifier the app
-# passes as kellylinux.model; fastfetch prints it as the host.
-model=$(sed -n 's/.*kellylinux\.model=\([^ ]*\).*/\1/p' /proc/cmdline)
+# passes as linuxed.model; fastfetch prints it as the host.
+model=$(sed -n 's/.*linuxed\.model=\([^ ]*\).*/\1/p' /proc/cmdline)
 case $model in
 iPhone12,1) name="iPhone 11 (A13 Bionic)" ;;
 iPhone12,3) name="iPhone 11 Pro (A13 Bionic)" ;;
@@ -34,7 +34,7 @@ iPhone18,1) name="iPhone 17 Pro (A19 Pro)" ;;
 iPhone18,2) name="iPhone 17 Pro Max (A19 Pro)" ;;
 iPhone18,3) name="iPhone 17 (A19)" ;;
 iPhone18,4) name="iPhone Air (A19 Pro)" ;;
-'') name="Kelly Linux" ;;
+'') name="Linuxed" ;;
 *) name=$model ;;
 esac
 printf '%s\n' "$name"
