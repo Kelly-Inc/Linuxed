@@ -1,15 +1,15 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 #
-# Build an unsigned Linuxed .ipa for the iOS device. Two jobs run first, side
-# by side: the kernel job builds the Linux kernel bundle when a kernel input
-# changes and restores it from the cache otherwise, and the images job builds
-# the guest images (restored from the cache while their producer is
-# unchanged), attaches each to its release and uploads it to the R2 bucket.
-# The IPA job starts once both have finished, then uploads the .ipa to the R2
-# bucket. The bucket is named by the R2_ACCOUNT_ID, R2_ACCESS_KEY_ID,
-# R2_SECRET_ACCESS_KEY and R2_BUCKET secrets. The accepted boot base archive
-# is not rebuildable byte-for-byte, so it is not rebuilt here and comes from
-# the `ci-inputs` release of heyskylo/KellyLinux.
+# Build an unsigned Linuxed .ipa for the iOS device. The kernel job takes the
+# Linux kernel bundle from the R2 bucket and builds it (and stores it there)
+# only when a kernel input changes. The IPA job needs only the kernel; it takes
+# Xcode from the bucket too and publishes the .ipa as an artifact. The images
+# job builds the guest images beside it, cached in the bucket, and attaches
+# each to its release. The R2_* repository secrets name the bucket; the first
+# run, and each new Xcode version, also needs the XCODES_USERNAME and
+# XCODES_PASSWORD secrets. The accepted boot base archive is not rebuildable
+# byte-for-byte, so it comes from the `ci-inputs` release of
+# heyskylo/KellyLinux.
 # Configure and packaging verify every input against the tracked descriptors.
 name: Build Linuxed IPA
 
@@ -159,38 +159,9 @@ jobs:
       release: ${{ matrix.release }}
       r2: true
 
-  upload-images:
-    needs: images
-    runs-on: ubuntu-24.04
-    permissions:
-      actions: read
-      contents: read
-    env:
-      GH_TOKEN: ${{ github.token }}
-    steps:
-      - uses: actions/checkout@v4
-      # The image jobs hand on only the images they built, not cached ones.
-      - name: Find freshly built images
-        id: built
-        run: |
-          count=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/artifacts" \
-            --jq '[.artifacts[] | select(.name | startswith("starter-"))] | length')
-          echo "count=$count" >> "$GITHUB_OUTPUT"
-      - uses: actions/download-artifact@v4
-        if: steps.built.outputs.count != '0'
-        with:
-          pattern: starter-*
-          path: images
-          merge-multiple: true
-      - name: Upload the guest images to R2
-        if: steps.built.outputs.count != '0'
-        run: |
-          for file in images/*.erofs; do
-            .github/scripts/r2.sh put "images/$(basename "$file")" "$file"
-          done
 
   ipa:
-    needs: [kernel, upload-images]
+    needs: kernel
     runs-on: macos-26
     timeout-minutes: 240
     permissions:
@@ -421,33 +392,3 @@ jobs:
           path: .build/ipa/Linuxed-unsigned.ipa
           if-no-files-found: error
 
-  upload-ipa:
-    needs: ipa
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
-        with:
-          name: Linuxed-unsigned-ipa
-          path: ipa
-      - name: Upload the IPA to R2
-        run: |
-          .github/scripts/r2.sh put "ipa/Linuxed-$GITHUB_SHA.ipa" ipa/Linuxed-unsigned.ipa
-          .github/scripts/r2.sh put ipa/Linuxed-latest.ipa ipa/Linuxed-unsigned.ipa
-
-      # The AltStore source respring.lol/repo serves; SOURCE_TOKEN may write
-      # Kelly-Inc/.github, which the run's own token cannot.
-      - name: Update the AltStore source
-        env:
-          GH_TOKEN: ${{ secrets.SOURCE_TOKEN }}
-          FILE: repositories/altstore.json
-        run: |
-          test -n "$GH_TOKEN" || { echo "set the SOURCE_TOKEN repository secret"; exit 1; }
-          sha=$(gh api "repos/Kelly-Inc/.github/contents/$FILE" --jq .sha)
-          gh api "repos/Kelly-Inc/.github/contents/$FILE" --jq .content | base64 -d > altstore.json
-          curl -sfL --max-time 60 https://respring.lol/repo -o seed.json || true
-          python3 .github/scripts/update-source.py altstore.json ipa/Linuxed-unsigned.ipa \
-            "https://releases.respring.lol/ipa/Linuxed-$GITHUB_SHA.ipa" --seed seed.json
-          gh api -X PUT "repos/Kelly-Inc/.github/contents/$FILE" \
-            -f message="Linuxed: point the source at ${GITHUB_SHA::7}" \
-            -f content="$(base64 -w0 altstore.json)" -f sha="$sha" >/dev/null
