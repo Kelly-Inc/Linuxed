@@ -309,8 +309,12 @@ bool create_debugger_pool() noexcept
 {
 	if (!debugger_attached())
 		return false;
-	void *executable = mmap(nullptr, pool_bytes, PROT_READ | PROT_EXEC,
-		MAP_PRIVATE | MAP_ANON, -1, 0);
+	/* Near this image, for the branch prediction the Window describes;
+	 * anywhere when that range is taken. */
+	const auto hint = reinterpret_cast<std::uintptr_t>(&create_debugger_pool) &
+			  ~((std::uintptr_t{1} << 29U) - 1U);
+	void *executable = mmap(reinterpret_cast<void *>(hint), pool_bytes,
+		PROT_READ | PROT_EXEC, MAP_PRIVATE | MAP_ANON, -1, 0);
 	if (executable == MAP_FAILED)
 		return false;
 	constexpr unsigned prepare_region = 1;
