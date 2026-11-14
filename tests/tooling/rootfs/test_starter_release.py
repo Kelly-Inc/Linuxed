@@ -112,6 +112,23 @@ class ManifestTests(unittest.TestCase):
         self.assertNotIn("disk", entry)
         self.assertIn("package_inventory", entry)
 
+    def test_the_arch_and_alpine_desktops_record_their_sources(self) -> None:
+        names = ["alpine-gnome.erofs", "arch-gnome.erofs", "arch-pond.erofs"]
+        for name in names:
+            (self.output / name).write_bytes(b"erofs")
+            (self.output / f"{name}.packages.tsv").write_text("pkg\t1\n")
+        self.manifest("--product", "arch-gnome", "--product", "arch-pond",
+                      "--product", "alpine-gnome", "--arch-sha256", "a",
+                      "--alpine-version", "3.24.2", "--alpine-sha256", "c")
+        manifest = self.load_manifest()
+        self.assertEqual(sorted(manifest["artifacts"]), names)
+        self.assertEqual(manifest["sources"]["arch"],
+                         {"rolling": True, "sha256": "a"})
+        self.assertEqual(manifest["sources"]["alpine"]["version"], "3.24.2")
+        result = self.manifest("--product", "arch-gnome", check=False)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("--arch-sha256", result.stderr)
+
     def armhf_release(self, audit: list[str]) -> list[str]:
         self.image("debian-13-minimal-armhf.img")
         (self.output / "debian-13-minimal-armhf.img.elf.tsv").write_text(

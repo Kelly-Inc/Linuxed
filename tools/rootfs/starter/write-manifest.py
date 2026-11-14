@@ -31,8 +31,10 @@ DEBIAN_IMAGES = {
     "debian-13-plasma-mobile": "debian-13-plasma-mobile.erofs",
     "debian-13-ztmetro": "debian-13-ztmetro.erofs",
 }
+# Desktop EROFS images of other distributions, each named by its product.
+OTHER_IMAGES = ("arch-gnome", "arch-pond", "alpine-gnome")
 PRODUCTS = ("boot-base-aarch64", "boot-base-x86_64", "alpine",
-            *DEBIAN_IMAGES)
+            *DEBIAN_IMAGES, *OTHER_IMAGES)
 # What each row of the armhf image's package inventory records.
 ARMHF_INVENTORY_COLUMNS = ["package", "version", "architecture", "size",
                            "sha256"]
@@ -76,6 +78,7 @@ def main() -> int:
     for source in ("buildroot", "busybox", "alpine"):
         parser.add_argument(f"--{source}-version")
         parser.add_argument(f"--{source}-sha256")
+    parser.add_argument("--arch-sha256")
     parser.add_argument("--debian-suite")
     parser.add_argument("--debian-version")
     parser.add_argument("--debian-mirror")
@@ -104,12 +107,16 @@ def main() -> int:
                                 "sha256": arguments.buildroot_sha256}
         sources["busybox"] = {"version": arguments.busybox_version,
                               "sha256": arguments.busybox_sha256}
-    if "alpine" in products:
+    if "alpine" in products or "alpine-gnome" in products:
         require("alpine_version", "alpine_sha256")
         sources["alpine"] = {"version": arguments.alpine_version,
                              "sha256": arguments.alpine_sha256}
     if "alpine" in products:
         artifacts.append(f"alpine-{arguments.alpine_version}-minimal.img")
+    if "arch-gnome" in products or "arch-pond" in products:
+        require("arch_sha256")
+        sources["arch"] = {"rolling": True, "sha256": arguments.arch_sha256}
+    artifacts += [f"{p}.erofs" for p in products if p in OTHER_IMAGES]
     debian = [DEBIAN_IMAGES[p] for p in products if p in DEBIAN_IMAGES]
     artifacts += debian
     if debian:

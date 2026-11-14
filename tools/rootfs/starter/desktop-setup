@@ -1,19 +1,21 @@
 #!/bin/sh
 # SPDX-License-Identifier: GPL-2.0-or-later
-# Desktop policy of the Debian XFCE, Phosh and Plasma Mobile images; the
-# argument names the
-# session. build-all.sh runs it once as root in the image root after the
-# desktop packages are installed. README.md beside this script owns the
-# contract.
+# Desktop policy of the Debian, Arch and Alpine desktop EROFS images; the
+# argument names the session. build-all.sh runs it once as root in the image
+# root after the desktop packages are installed. README.md beside this script
+# owns the contract.
 set -eu
 
 session=$1
 fail()
 {
-	echo "debian-$session setup: $*" >&2
+	echo "desktop-$session setup: $*" >&2
 	exit 1
 }
-case "$session" in xfce|phosh|plasma-mobile|ztmetro) ;; *) fail "unknown session" ;; esac
+case "$session" in xfce|phosh|plasma-mobile|ztmetro|gnome) ;; *) fail "unknown session" ;; esac
+# Alpine boots OpenRC; the Debian and Arch images boot systemd.
+openrc=false
+command -v systemctl >/dev/null || openrc=true
 
 install -d -m 0755 /etc/udev/rules.d
 cat > /etc/udev/rules.d/59-linuxed-input.rules <<'RULES'
@@ -33,7 +35,7 @@ passwd -d user
 passwd -d root
 printf '%s\n' 'user ALL=(ALL:ALL) NOPASSWD: ALL' > /etc/sudoers.d/user
 chmod 0440 /etc/sudoers.d/user
-for group in sudo video input audio render; do
+for group in sudo wheel video input audio render; do
 	if getent group "$group" >/dev/null; then
 		usermod -a -G "$group" user
 	fi
@@ -85,6 +87,25 @@ idle-delay=uint32 0
 enable-animations=false
 OVERRIDE
 	display_manager=greetd
+	;;
+gnome)
+	[ -f /usr/share/wayland-sessions/gnome.desktop ] ||
+		fail "the image has no GNOME session"
+	install -d -m 0755 /etc/gdm
+	printf '%s\n' '[daemon]' 'AutomaticLoginEnable=True' \
+		'AutomaticLogin=user' 'WaylandEnable=true' > /etc/gdm/custom.conf
+	# user has no password, so a lock screen could never be unlocked.
+	cat > /usr/share/glib-2.0/schemas/80-linuxed-lock.gschema.override <<'OVERRIDE'
+[org.gnome.desktop.screensaver]
+lock-enabled=false
+
+[org.gnome.desktop.session]
+idle-delay=uint32 0
+
+[org.gnome.desktop.interface]
+enable-animations=false
+OVERRIDE
+	display_manager=gdm
 	;;
 plasma-mobile)
 	[ -f /usr/share/wayland-sessions/plasma-mobile.desktop ] ||
@@ -138,7 +159,23 @@ CONFIG
 	display_manager=greetd
 	;;
 esac
-systemctl enable "$display_manager.service" ssh.service
+if $openrc; then
+	# Linuxed's console is ttyS0; its getty logs root in.
+	for service_level in "udev sysinit" "udev-trigger sysinit" \
+		"udev-settle sysinit" "udev-postmount default" "dbus default" \
+		"elogind default" "sshd default" "$display_manager default"; do
+		set -- $service_level
+		rc-update add "$1" "$2"
+	done
+	sed -i '/^hvc0::/d' /etc/inittab
+	printf '%s\n' 'ttyS0::respawn:/sbin/getty -n -l /sbin/autologin-root 115200 ttyS0 vt100' \
+		>> /etc/inittab
+fi
+if ! $openrc; then
+# Debian names the OpenSSH unit ssh, Arch sshd.
+ssh_unit=ssh.service
+[ -f /usr/lib/systemd/system/ssh.service ] || ssh_unit=sshd.service
+systemctl enable "$display_manager.service" "$ssh_unit"
 ln -sfn "/usr/lib/systemd/system/$display_manager.service" \
 	/etc/systemd/system/display-manager.service
 systemctl set-default graphical.target
@@ -172,6 +209,7 @@ cat > /etc/systemd/system/serial-getty@ttyS0.service.d/autologin.conf <<'UNIT'
 ExecStart=
 ExecStart=-/sbin/agetty --autologin root --noclear - $TERM
 UNIT
+fi
 
 # gpucheck reports in one line whether Mesa reaches the GPU or draws in
 # software, the way the session's compositor opens it.
@@ -189,7 +227,7 @@ chmod 0755 /usr/local/bin/gpucheck
 
 # The default fastfetch layout: the Apple logo, then the clock, the system,
 # the hardware and the phone's battery.
-install -m 0755 /tmp/linuxed-host /usr/libexec/linuxed-host
+install -D -m 0755 /tmp/linuxed-host /usr/libexec/linuxed-host
 install -d -m 0755 /etc/xdg/fastfetch
 cat > /etc/xdg/fastfetch/config.jsonc <<'CONFIG'
 {
@@ -279,7 +317,7 @@ if [ -f /tmp/wallpaper.png ]; then
 			ln -sf "$wallpaper" "$default"
 		done
 		;;
-	phosh)
+	phosh|gnome)
 		cat > /usr/share/glib-2.0/schemas/90-linuxed.gschema.override <<OVERRIDE
 [org.gnome.desktop.background]
 picture-uri='file://$wallpaper'

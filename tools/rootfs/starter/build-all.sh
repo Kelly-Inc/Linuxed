@@ -30,6 +30,16 @@ LIBDRM_VERSION=2.4.134
 LIBDRM_SHA256=ac5e74d157830eb8bee44c6a6bf3ad49774ef0dd2a72bdad74a8f20308b52a95
 XKBCOMMON_VERSION=1.13.2
 XKBCOMMON_SHA256=acc4d5f7c3cbba5f9f8d08d8bdbeede84ecede46792f47929aa9321873385528
+# Arch Linux ARM publishes only a rolling root archive; the manifest records
+# the digest of the one a build used.
+ARCH_URL=http://os.archlinuxarm.org/os/ArchLinuxARM-aarch64-latest.tar.gz
+# arch-pond takes Pond's architecture-independent configuration packages.
+POND_URL=https://repo.butterfly.so/x86_64
+POND_PACKAGES="pond-fish-config-1-1-any.pkg.tar.zst:42210fe90d7cbe81502f0212486830a70f7a6709478fdb9fa027c3af899543b8
+pond-system-optimizations-1_1.4.1-3-any.pkg.tar.zst:d6bf41496174f9b8061571f2b4c35f4b6c42b0568461eb6b547a103ab6115306
+fish-autopair-1.0.4-3-any.pkg.tar.zst:61c894cdddb6f8e49d0bb712a9a29beebd62776c2dd1ad45b9fca0153e89e04d
+fish-pure-prompt-4.19.2-1-any.pkg.tar.zst:4e1f45ccec4d3a6ba146acb65e2c762299a76e7b2dfe4cf3b5b68c3a19e7e19c
+ananicy-rules-1_1.1.49-1-any.pkg.tar.zst:65d79d2946e14e00bb2b1c22bcabe0942aca23d24a74776677b20b2421ba530c"
 DEBIAN_SUITE=trixie
 DEBIAN_MIRROR=http://deb.debian.org/debian
 # The armhf twin of debian-13-minimal installs the same package list through
@@ -40,7 +50,7 @@ DEBIAN_MIRROR=http://deb.debian.org/debian
 # provides. --exclude cannot drop it, because the dependency pulls it back.
 ARMHF_INCLUDE=systemd-sysv,systemd-resolved,udev,kmod,dbus,ca-certificates,libbpf1
 DEFAULT_PRODUCTS="boot-base-aarch64 boot-base-x86_64 alpine debian-13-minimal debian-13-plasma-wayland"
-KNOWN_PRODUCTS="$DEFAULT_PRODUCTS debian-13-minimal-armhf debian-13-xfce debian-13-phosh debian-13-plasma-mobile debian-13-ztmetro"
+KNOWN_PRODUCTS="$DEFAULT_PRODUCTS debian-13-minimal-armhf debian-13-xfce debian-13-phosh debian-13-plasma-mobile debian-13-ztmetro arch-gnome alpine-gnome arch-pond"
 
 fail()
 {
@@ -62,10 +72,12 @@ not exist; the completed release directory is published atomically.
 release holds every product but the armhf and desktop EROFS ones:
   boot-base-aarch64 boot-base-x86_64 alpine debian-13-minimal
   debian-13-plasma-wayland debian-13-minimal-armhf debian-13-xfce
-  debian-13-phosh debian-13-plasma-mobile debian-13-ztmetro
+  debian-13-phosh debian-13-plasma-mobile debian-13-ztmetro arch-gnome
+  alpine-gnome arch-pond
 
-debian-13-xfce, debian-13-phosh, debian-13-plasma-mobile and
-debian-13-ztmetro are bare EROFS images for Linuxed; they need mkfs.erofs.
+debian-13-xfce, debian-13-phosh, debian-13-plasma-mobile, debian-13-ztmetro,
+arch-gnome, alpine-gnome and arch-pond are bare EROFS images for Linuxed; they
+need mkfs.erofs.
 
 debian-13-minimal-armhf runs ARM programs under qemu-arm (Debian's qemu-user)
 in private namespaces.
@@ -139,7 +151,8 @@ if wants debian-13-minimal-armhf; then
 	sudo -n -- sh "$SCRIPT_DIR/armhf-run.sh" --check
 fi
 if wants debian-13-xfce || wants debian-13-phosh || \
-	wants debian-13-plasma-mobile || wants debian-13-ztmetro; then
+	wants debian-13-plasma-mobile || wants debian-13-ztmetro || \
+	wants arch-gnome || wants alpine-gnome || wants arch-pond; then
 	producer_require_host aarch64 mkfs.erofs
 fi
 
@@ -158,6 +171,7 @@ esac
 [ "$work_dir" != "$final_output_dir" ] || fail "work and output directories must differ"
 producer_require_absent "output directory" "$final_output_dir"
 chroot_proc=
+chroot_dev=
 producer_exit_hook=unmount_chroot_proc
 producer_stage "$output_parent" "$output_name"
 output_dir=$staging_dir
@@ -195,8 +209,19 @@ mount_chroot_proc()
 	chroot_proc=$1/proc
 }
 
+# pacman and apk triggers also need the host's /dev.
+mount_chroot_dev()
+{
+	as_root mount --bind /dev "$1/dev"
+	chroot_dev=$1/dev
+}
+
 unmount_chroot_proc()
 {
+	if [ -n "$chroot_dev" ]; then
+		as_root umount -- "$chroot_dev"
+		chroot_dev=
+	fi
 	[ -n "$chroot_proc" ] || return 0
 	as_root umount -- "$chroot_proc"
 	chroot_proc=
@@ -803,12 +828,12 @@ build_debian_desktop()
 		as_root chroot "$root" /bin/sh /tmp/ztmetro-build
 		as_root rm -f "$root/tmp/ztmetro-build"
 	fi
-	as_root install -m 0755 "$SCRIPT_DIR/debian-desktop-setup" "$root/tmp/debian-desktop-setup"
+	as_root install -m 0755 "$SCRIPT_DIR/desktop-setup" "$root/tmp/desktop-setup"
 	as_root install -m 0755 "$SCRIPT_DIR/linuxed-host" "$root/tmp/linuxed-host"
 	if [ -f "$SCRIPT_DIR/wallpaper.png" ]; then
 		as_root install -m 0644 "$SCRIPT_DIR/wallpaper.png" "$root/tmp/wallpaper.png"
 	fi
-	as_root chroot "$root" /bin/sh /tmp/debian-desktop-setup "$session"
+	as_root chroot "$root" /bin/sh /tmp/desktop-setup "$session"
 	as_root chroot "$root" dpkg-query -W -f='${binary:Package}\t${Version}\n' | \
 		sort > "$work_dir/debian-$session.packages.tsv"
 	unmount_chroot_proc
@@ -818,6 +843,130 @@ build_debian_desktop()
 	as_root mkfs.erofs -zlzma "$destination" "$root"
 	as_root chown "$owner_uid:$owner_gid" "$destination"
 	cp "$work_dir/debian-$session.packages.tsv" "$destination.packages.tsv"
+}
+
+# The desktop policy, the host name tool and the wallpaper, run in $1 for
+# session $2.
+run_desktop_setup()
+{
+	as_root install -m 0755 "$SCRIPT_DIR/desktop-setup" "$1/tmp/desktop-setup"
+	as_root install -m 0755 "$SCRIPT_DIR/linuxed-host" "$1/tmp/linuxed-host"
+	if [ -f "$SCRIPT_DIR/wallpaper.png" ]; then
+		as_root install -m 0644 "$SCRIPT_DIR/wallpaper.png" "$1/tmp/wallpaper.png"
+	fi
+	as_root chroot "$1" /bin/sh /tmp/desktop-setup "$2"
+}
+
+# Writes product $1's root $2 as a bare LZMA EROFS image beside its package
+# inventory, $3.
+publish_erofs()
+{
+	as_root rm -rf -- "$2/tmp"/* "$2/var/tmp"/* "$2/run"/*
+	as_root find "$2/var/log" -type f -exec truncate -s 0 {} \;
+	as_root rm -rf -- "$2/usr/share/man"/* "$2/usr/share/info"/* \
+		"$2/usr/share/doc"/*
+	producer_reset_machine_id "$2"
+	destination=$(artifact_path "$1.erofs")
+	as_root mkfs.erofs -zlzma "$destination" "$2"
+	as_root chown "$owner_uid:$owner_gid" "$destination"
+	cp "$3" "$destination.packages.tsv"
+}
+
+# Arch Linux ARM with GNOME ($1: gnome, or pond for Pond's configuration and
+# its fish shell), on systemd like the Debian images.
+build_arch_desktop()
+{
+	variant=$1
+	product=arch-$variant
+	printf '%s\n' "==> Building Arch Linux ARM $variant EROFS image"
+	archive=$sources_dir/${ARCH_URL##*/}
+	if [ ! -f "$archive" ]; then
+		curl -fL --retry 3 --output "$archive.partial" "$ARCH_URL"
+		mv -- "$archive.partial" "$archive"
+	fi
+	sha256sum "$archive" | awk '{print $1}' > "$work_dir/arch.sha256"
+	root=$roots_dir/$product
+	reset_root_directory "$root"
+	as_root tar --numeric-owner --warning=no-unknown-keyword -C "$root" \
+		-xpzf "$archive"
+	mount_chroot_proc "$root"
+	mount_chroot_dev "$root"
+	as_root rm -f -- "$root/etc/resolv.conf"
+	as_root cp -L /etc/resolv.conf "$root/etc/resolv.conf"
+	# The chroot has no mounts of its own for pacman to measure.
+	as_root sed -i 's/^CheckSpace/#CheckSpace/' "$root/etc/pacman.conf"
+	as_root chroot "$root" pacman-key --init
+	as_root chroot "$root" pacman-key --populate archlinuxarm
+	# Linuxed brings its own kernel, and the image its own account.
+	as_root chroot "$root" /bin/sh -c \
+		'for p in linux-aarch64 linux-firmware; do
+			if pacman -Q "$p" >/dev/null 2>&1; then pacman -Rdd --noconfirm "$p"; fi
+		done
+		if id alarm >/dev/null 2>&1; then userdel -r alarm; fi'
+	as_root chroot "$root" pacman -Syu --noconfirm --needed \
+		gnome-shell gdm gnome-console nautilus gnome-control-center \
+		xorg-xwayland mesa mesa-utils ttf-dejavu adwaita-icon-theme sudo \
+		openssh iputils netsurf fastfetch nano htop curl wget zsh
+	if [ "$variant" = pond ]; then
+		as_root install -d -m 0755 "$root/tmp/pond"
+		set --
+		for entry in $POND_PACKAGES; do
+			file=${entry%%:*}
+			download_checked "$POND_URL/$file" "${entry#*:}" "$sources_dir/$file"
+			as_root install -m 0644 "$sources_dir/$file" "$root/tmp/pond/$file"
+			set -- "$@" "/tmp/pond/$file"
+		done
+		as_root chroot "$root" pacman -S --noconfirm --needed --asdeps \
+			bat expac eza fish fisher fzf gum pkgfile tealdeer \
+			ttf-fantasque-nerd zram-generator iw wireless-regdb
+		# ananicy-cpp has no Arch Linux ARM build; its rules stay inert.
+		as_root chroot "$root" pacman -U --noconfirm \
+			--assume-installed ananicy-cpp "$@"
+	fi
+	configure_debian_base "$root" linuxed root
+	run_desktop_setup "$root" gnome
+	if [ "$variant" = pond ]; then
+		as_root chroot "$root" usermod -s /usr/bin/fish user
+	fi
+	as_root chroot "$root" pacman -Q | tr ' ' '\t' | sort \
+		> "$work_dir/$product.packages.tsv"
+	as_root chroot "$root" gpgconf --homedir /etc/pacman.d/gnupg --kill all || true
+	unmount_chroot_proc
+	as_root rm -rf -- "$root/var/cache/pacman/pkg"/* "$root/var/lib/pacman/sync"/*
+	publish_erofs "$product" "$root" "$work_dir/$product.packages.tsv"
+}
+
+# Alpine with GNOME on OpenRC, from the same minimal root as the alpine disk.
+build_alpine_desktop()
+{
+	printf '%s\n' "==> Building Alpine $ALPINE_VERSION GNOME EROFS image"
+	archive=$sources_dir/alpine-minirootfs-$ALPINE_VERSION-aarch64.tar.gz
+	download_checked \
+		"https://dl-cdn.alpinelinux.org/alpine/v3.24/releases/aarch64/$(basename "$archive")" \
+		"$ALPINE_SHA256" "$archive"
+	root=$roots_dir/alpine-gnome
+	reset_root_directory "$root"
+	as_root tar --numeric-owner -C "$root" -xzf "$archive"
+	mount_chroot_proc "$root"
+	mount_chroot_dev "$root"
+	configure_alpine "$root"
+	# GNOME needs udev, so eudev replaces the minimal image's mdevd.
+	as_root chroot "$root" /sbin/rc-update del mdevd sysinit
+	as_root chroot "$root" /sbin/rc-update del mdevd-init sysinit
+	as_root chroot "$root" /sbin/apk add --no-cache \
+		gnome-shell gnome-session gdm gdm-openrc gnome-console nautilus \
+		gnome-control-center xwayland eudev eudev-openrc udev-init-scripts \
+		udev-init-scripts-openrc dbus dbus-openrc elogind elogind-openrc \
+		polkit-elogind mesa-dri-gallium mesa-egl mesa-utils font-dejavu \
+		adwaita-icon-theme shadow sudo bash openssh iputils netsurf \
+		fastfetch nano htop curl wget zsh
+	printf '%s\n' linuxed | write_root_file "$root/etc/hostname" 0644
+	run_desktop_setup "$root" gnome
+	as_root chroot "$root" /sbin/apk info -v | sort \
+		> "$work_dir/alpine-gnome.packages.tsv"
+	unmount_chroot_proc
+	as_root rm -rf -- "$root/var/cache/apk"/*
+	publish_erofs alpine-gnome "$root" "$work_dir/alpine-gnome.packages.tsv"
 }
 
 # The armhf twin of debian-13-minimal. debootstrap's first stage only
@@ -902,6 +1051,15 @@ fi
 if wants debian-13-ztmetro; then
 	build_debian_desktop ztmetro
 fi
+if wants arch-gnome; then
+	build_arch_desktop gnome
+fi
+if wants arch-pond; then
+	build_arch_desktop pond
+fi
+if wants alpine-gnome; then
+	build_alpine_desktop
+fi
 if wants debian-13-minimal; then
 	build_debian_minimal
 fi
@@ -930,7 +1088,10 @@ if wants boot-base-aarch64 || wants boot-base-x86_64; then
 		--busybox-version "$BUSYBOX_VERSION" \
 		--busybox-sha256 "$BUSYBOX_SHA256"
 fi
-if wants alpine; then
+if wants arch-gnome || wants arch-pond; then
+	set -- "$@" --arch-sha256 "$(cat "$work_dir/arch.sha256")"
+fi
+if wants alpine || wants alpine-gnome; then
 	set -- "$@" --alpine-version "$ALPINE_VERSION" \
 		--alpine-sha256 "$ALPINE_SHA256"
 fi

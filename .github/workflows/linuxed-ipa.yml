@@ -150,6 +150,12 @@ jobs:
             release: debian-phosh
           - product: debian-13-plasma-mobile
             release: debian-plasma-mobile
+          - product: arch-gnome
+            release: arch-gnome
+          - product: alpine-gnome
+            release: alpine-gnome
+          - product: arch-pond
+            release: arch-pond
     permissions:
       contents: write
     uses: ./.github/workflows/boot-base.yml
