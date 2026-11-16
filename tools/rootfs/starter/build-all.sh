@@ -906,7 +906,8 @@ build_arch_desktop()
 	as_root chroot "$root" pacman -Syu --noconfirm --needed \
 		gnome-shell gdm gnome-console nautilus gnome-control-center \
 		xorg-xwayland mesa mesa-utils ttf-dejavu adwaita-icon-theme sudo \
-		openssh iputils netsurf fastfetch nano htop curl wget zsh
+		openssh iputils netsurf fastfetch nano htop curl wget zsh \
+		gnome-remote-desktop gnome-keyring pipewire wireplumber
 	if [ "$variant" = pond ]; then
 		as_root install -d -m 0755 "$root/tmp/pond"
 		set --

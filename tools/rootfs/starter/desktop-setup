@@ -105,6 +105,32 @@ idle-delay=uint32 0
 [org.gnome.desktop.interface]
 enable-animations=false
 OVERRIDE
+	# GNOME's own VNC server shares the session on port 5900, which Linuxed
+	# CLI forwards from the phone's loopback. It asks the compositor, not a
+	# portal, so nothing prompts on the guest's screen. Its password,
+	# `linuxed`, lives in a login keyring without a password of its own:
+	# user logs in automatically, so nothing could unlock an encrypted one.
+	if command -v grdctl >/dev/null; then
+		cat > /usr/share/glib-2.0/schemas/81-linuxed-vnc.gschema.override <<'OVERRIDE'
+[org.gnome.desktop.remote-desktop.vnc]
+enable=true
+view-only=false
+auth-method='password'
+OVERRIDE
+		systemctl --global enable gnome-remote-desktop.service
+		keyrings=$(getent passwd user | cut -d: -f6)/.local/share/keyrings
+		install -d -m 0700 "$keyrings"
+		printf '%s\n' '[keyring]' 'display-name=login' 'ctime=0' 'mtime=0' \
+			'lock-on-idle=false' 'lock-after=false' > "$keyrings/login.keyring"
+		printf '%s' login > "$keyrings/default"
+		chmod 0600 "$keyrings/login.keyring" "$keyrings/default"
+		chown -R user:user "${keyrings%/share/keyrings}"
+		install -d -m 0755 /etc/xdg/autostart
+		printf '%s\n' '[Desktop Entry]' 'Type=Application' \
+			'Name=Linuxed VNC password' 'NoDisplay=true' \
+			'Exec=grdctl vnc set-password linuxed' \
+			> /etc/xdg/autostart/linuxed-vnc-password.desktop
+	fi
 	display_manager=gdm
 	;;
 plasma-mobile)

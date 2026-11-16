@@ -35,7 +35,10 @@ whose digest the manifest records; Alpine on OpenRC with eudev in place of
 mdevd; and Arch with Pond's architecture-independent configuration packages
 (`pond-fish-config`, `pond-system-optimizations`), pinned by digest, and fish
 as `user`'s shell. Pond's desktop shell has no arm64 build, and its
-`ananicy-cpp` dependency is assumed rather than installed.
+`ananicy-cpp` dependency is assumed rather than installed. The Arch images
+start GNOME Remote Desktop's VNC server in `user`'s session on port 5900,
+password `linuxed`, which an unencrypted login keyring holds; Linuxed CLI
+forwards that port to the phone's loopback.
 A `wallpaper.png` beside the setup script, when present, becomes the
 session's default backdrop. The images mask background work a phone guest has
 no use for, turn off animations and indexers, and keep the
