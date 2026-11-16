@@ -15,6 +15,6 @@ R1	tests/integration/gpu/vk_gl_cts_derivative_rootfs.json	/home/build/U5-source3
 R1	tests/tooling/gpu/test_run_vk_gl_cts.py	/home/vm/input	fixture for a parser or validator
 R2	tests/tooling/cmake/test_patch_series.py	dev@Mac\.local	fixture for a parser or validator
 R2	tests/tooling/network/slirp_forward_probe.cpp	192\.168\.64\.1	fixture for a parser or validator
-R3	Linuxed/Linuxed.xcodeproj/project.pbxproj	PRODUCT_BUNDLE_IDENTIFIER = lol\.respring\.linuxed(?:\.tests|\.uitests|\.automation)?;	project signing identity
+R3	Linuxed/Linuxed.xcodeproj/project.pbxproj	PRODUCT_BUNDLE_IDENTIFIER = lol\.respring\.linuxed(?:\.tests|\.uitests|\.automation|\.cli)?;	project signing identity
 R3	Linuxed/Runtime/CMakeLists.txt	MACOSX_FRAMEWORK_IDENTIFIER	project signing identity
 R3	dependencies/apple-static-framework/Info.plist.in	CFBundleIdentifier	project signing identity

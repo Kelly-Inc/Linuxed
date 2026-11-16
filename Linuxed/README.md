@@ -207,6 +207,20 @@ may keep recording under the `audio` background mode.
 [`../darwin/device/audio/README.md`](../darwin/device/audio/README.md#microphone)
 owns the device side.
 
+## Linuxed CLI
+
+The `LinuxedCLI` target (`lol.respring.linuxed.cli`) builds the same sources
+with `LINUXED_CLI` set. It shows only the serial console, boots
+`arch-gnome.erofs` from Documents at launch (the menu imports an image until
+one is there), runs the guest at 1920 × 1080 and never starts the remote
+display: it forwards the device's loopback port 5900 to the guest's, where
+the image's GNOME VNC server
+([`tools/rootfs/starter`](../tools/rootfs/starter/README.md)) shares the
+desktop, as well as port 2222 to port 22. A computer reaches the desktop with
+`iproxy 5900 5900` and a VNC viewer on `localhost:5900`.
+`.github/workflows/linuxed-ipa.yml` builds its .ipa with the newest kernel
+bundle already built, without waiting for the kernel job.
+
 ## Lifecycle
 
 Linuxed asks the guest to write back when the application loses focus,

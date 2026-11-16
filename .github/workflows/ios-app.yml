@@ -1,0 +1,287 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+#
+# Build one unsigned application of Linuxed.xcodeproj (`scheme`) as an .ipa
+# for the iOS device, from the kernel bundle in the R2 bucket. `kernel: exact`
+# takes the bundle built for this commit's kernel inputs; `kernel: latest`
+# takes it when it exists and otherwise the newest bundle the kernel job built,
+# so the build needs no kernel job of its own. linuxed-ipa.yml calls it; the
+# caller passes its secrets and the issues permission the Xcode login asks in.
+name: Build iOS app
+
+on:
+  workflow_call:
+    inputs:
+      scheme:
+        type: string
+        required: true
+      kernel:
+        description: exact, or latest to fall back to the newest built kernel
+        type: string
+        default: exact
+
+env:
+  R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+  R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+  R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+  R2_BUCKET: ${{ secrets.R2_BUCKET }}
+
+jobs:
+  ipa:
+    runs-on: macos-26
+    timeout-minutes: 240
+    env:
+      GH_TOKEN: ${{ github.token }}
+      CCACHE_DIR: ${{ github.workspace }}/.build/ccache-runtime
+      XCODE_VERSION: "27.2"
+    steps:
+      - uses: actions/checkout@v4
+
+      # shortcut: hosted images carry no Xcode 27 yet; drop these steps once one does.
+      # Unpacking the .xip takes most of the install, so the unpacked Xcode is
+      # kept in R2 as a zstd archive, with the .xip beside it so a lost archive
+      # is rebuilt without asking the Apple ID for a code.
+      # The runner image's own Xcode 27 skips every step below that fetches one.
+      - name: Use the runner's Xcode 27
+        id: pre
+        run: |
+          app=$(ls -d /Applications/Xcode_27*.app 2>/dev/null | sort -V | tail -1)
+          [ -n "$app" ] || exit 0
+          sudo xcode-select -s "$app"
+          echo found=true >> "$GITHUB_OUTPUT"
+
+      - name: Restore Xcode from R2
+        id: xcode
+        if: steps.pre.outputs.found != 'true'
+        run: |
+          mkdir -p "$RUNNER_TEMP/xcode-app" "$RUNNER_TEMP/xcode-xip"
+          if .github/scripts/r2.sh has "cache/xcode/Xcode-$XCODE_VERSION.tar.zst"; then
+            .github/scripts/r2.sh get "cache/xcode/Xcode-$XCODE_VERSION.tar.zst" "$RUNNER_TEMP/xcode-app/Xcode.tar.zst"
+            echo app-hit=true >> "$GITHUB_OUTPUT"
+          elif .github/scripts/r2.sh has "cache/xcode/Xcode-$XCODE_VERSION.xip"; then
+            .github/scripts/r2.sh get "cache/xcode/Xcode-$XCODE_VERSION.xip" "$RUNNER_TEMP/xcode-xip/Xcode-$XCODE_VERSION.xip"
+            echo xip-hit=true >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Download Xcode ${{ env.XCODE_VERSION }}
+        if: steps.pre.outputs.found != 'true' && steps.xcode.outputs.app-hit != 'true' && steps.xcode.outputs.xip-hit != 'true'
+        env:
+          XCODES_USERNAME: ${{ secrets.XCODES_USERNAME }}
+          XCODES_PASSWORD: ${{ secrets.XCODES_PASSWORD }}
+          # The code is taken from whoever started the run: an organization's
+          # private membership is invisible to the run's token.
+          ACTOR: ${{ github.actor }}
+        run: |
+          test -n "$XCODES_USERNAME" && test -n "$XCODES_PASSWORD" ||
+            { echo "set the XCODES_USERNAME and XCODES_PASSWORD repository secrets"; exit 1; }
+          brew install xcodes aria2
+          mkdir -p "$RUNNER_TEMP/xcode-xip"
+          # Apple's two-factor code reaches the owner's phone, so the job asks for
+          # it in an issue and reads the owner's reply into xcodes' prompt.
+          issue=$(gh issue create --title "Xcode login code for run ${{ github.run_id }}" \
+            --body "Reply with the 6-digit Apple ID code within 15 minutes if your phone shows one." | sed 's|.*/||')
+          since=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          mkfifo "$RUNNER_TEMP/code"
+          (
+            exec 3>"$RUNNER_TEMP/code"
+            end=$((SECONDS + 900))
+            while [ $SECONDS -lt $end ]; do
+              reply=$(gh api "repos/$GITHUB_REPOSITORY/issues/$issue/comments?since=$since" \
+                --jq "[.[] | select(.user.login == \"$ACTOR\")] | last | \"\\(.id) \\(.body)\"" 2>/dev/null || true)
+              code=$(printf '%s' "${reply#* }" | tr -dc 0-9 | cut -c1-6)
+              if [ ${#code} -eq 6 ]; then
+                gh api -X DELETE "repos/$GITHUB_REPOSITORY/issues/comments/${reply%% *}" || true
+                printf '%s\n' "$code" >&3
+                # Hold the pipe open until xcodes finishes so it never reads end of file early.
+                while pgrep -x xcodes >/dev/null; do sleep 5; done
+                exit 0
+              fi
+              sleep 10
+            done
+            # No code came: closing the pipe ends a prompt that is still waiting.
+            echo "no Apple ID code within 15 minutes"
+          ) &
+          status=0
+          xcodes download "$XCODE_VERSION" --directory "$RUNNER_TEMP/xcode-xip" <"$RUNNER_TEMP/code" || status=$?
+          gh issue close "$issue" || true
+          [ "$status" -eq 0 ] || exit "$status"
+          ls -l "$RUNNER_TEMP/xcode-xip"
+
+      - name: Save Xcode download to R2
+        if: steps.pre.outputs.found != 'true' && steps.xcode.outputs.app-hit != 'true' && steps.xcode.outputs.xip-hit != 'true'
+        run: |
+          xip=$(ls "$RUNNER_TEMP"/xcode-xip/*.xip)
+          .github/scripts/r2.sh put "cache/xcode/Xcode-$XCODE_VERSION.xip" "$xip"
+
+      - name: Install Xcode ${{ env.XCODE_VERSION }}
+        if: steps.pre.outputs.found != 'true'
+        run: |
+          sudo rm -rf /Applications/Xcode_26.[0-5]*.app
+          archive=$RUNNER_TEMP/xcode-app/Xcode.tar.zst
+          if [ -f "$archive" ]; then
+            zstd -dc "$archive" | sudo tar -xpf - -C /Applications
+            rm -f "$archive"
+            sudo xcode-select -s /Applications/Xcode-"$XCODE_VERSION"*.app
+            sudo xcodebuild -license accept
+            sudo xcodebuild -runFirstLaunch
+          else
+            brew install xcodes
+            xip=$(ls "$RUNNER_TEMP"/xcode-xip/*.xip)
+            xcodes install "$XCODE_VERSION" --path "$xip" --experimental-unxip --select
+            rm -f "$xip"
+            mkdir -p "$RUNNER_TEMP/xcode-app"
+            app=$(basename /Applications/Xcode-"$XCODE_VERSION"*.app)
+            tar -cf - -C /Applications "$app" | zstd -T0 -3 -q -o "$archive"
+            ls -l "$archive"
+          fi
+
+      - name: Add the iOS platform and Metal toolchain
+        run: |
+          xcodebuild -version | grep -q '^Xcode 27' || { xcodebuild -version; exit 1; }
+          xcodebuild -downloadPlatform iOS
+          xcodebuild -downloadComponent MetalToolchain
+
+      - name: Save installed Xcode to R2
+        if: steps.pre.outputs.found != 'true' && steps.xcode.outputs.app-hit != 'true'
+        run: |
+          .github/scripts/r2.sh put "cache/xcode/Xcode-$XCODE_VERSION.tar.zst" "$RUNNER_TEMP/xcode-app/Xcode.tar.zst"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install build tools
+        run: |
+          brew install autoconf automake bison ccache flex gettext gperf groff libtool make meson ninja pkg-config rsync
+          echo "$(brew --prefix bison)/bin" >> "$GITHUB_PATH"
+          echo "$(brew --prefix flex)/bin" >> "$GITHUB_PATH"
+          python -m venv .build/gpu-tools-venv
+          .build/gpu-tools-venv/bin/pip install meson mako pyyaml packaging
+          # Patch replay commits in throwaway source trees need an identity.
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Fetch kernel bundles from R2
+        env:
+          KEY: cache/kernel/${{ hashFiles('kernel/common/**', 'kernel/mainline-6.18/**') }}.tar.zst
+          KERNEL: ${{ inputs.kernel }}
+        run: |
+          latest=false
+          if [ "$KERNEL" = latest ] && ! .github/scripts/r2.sh has "$KEY"; then
+            echo "::notice::No kernel is built for this commit yet; using the newest one built."
+            KEY=cache/kernel/latest.tar.zst
+            latest=true
+          fi
+          .github/scripts/r2.sh get "$KEY" "$RUNNER_TEMP/kernel.tar.zst"
+          mkdir -p .build/kernel/artifacts
+          zstd -dc "$RUNNER_TEMP/kernel.tar.zst" | tar -xf - -C .build/kernel/artifacts
+          rm -f "$RUNNER_TEMP/kernel.tar.zst"
+          # An older kernel carries an older identity: the descriptor names it,
+          # and configure still refuses it when the bridge ABI has changed.
+          $latest || exit 0
+          python3 -I - kernel/mainline-6.18/artifacts/accepted-4k.env .build/kernel/artifacts <<'EOF'
+          import json, pathlib, sys
+          descriptor, root = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2])
+          (path,) = root.glob("mainline-6.18-arm64-4k-*/kernel-artifact.json")
+          m = json.loads(path.read_text())
+          values = {
+              "SCHEMA": m["schema_version"], "RELEASE_ID": m["release_id"],
+              "DIRECTORY_NAME": m["directory_name"], "FAMILY": m["family"],
+              "SLICE": m["slice"], "RELEASE": m["release"], "PAGE_SIZE": m["page_size"],
+              "FINAL_TREE": m["source"]["final_tree"], "ABI_VERSION": m["abi"]["version"],
+              "ABI_FINGERPRINT": m["abi"]["fingerprint"],
+          }
+          lines = ["# SPDX-License-Identifier: GPL-2.0-or-later"] + [
+              f"UML_KERNEL_ARTIFACT_{k}=" + (str(v) if isinstance(v, int) else f"'{v}'")
+              for k, v in values.items()
+          ]
+          descriptor.write_text("\n".join(lines) + "\n")
+          print(descriptor.read_text())
+          EOF
+
+      # The release string carries the replay commit's hash, which depends on
+      # who replayed the series and when, so the CI kernel takes its own in
+      # this checkout; the final tree, ABI and family are still checked.
+      - name: Adopt the CI kernels' release strings
+        run: |
+          for env in kernel/mainline-6.18/artifacts/accepted-4k.env; do
+            dir=$(. "./$env"; printf '%s' "$UML_KERNEL_ARTIFACT_DIRECTORY_NAME")
+            release=$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["release"])' \
+              ".build/kernel/artifacts/$dir/kernel-artifact.json")
+            sed -i '' "s|^UML_KERNEL_ARTIFACT_RELEASE=.*|UML_KERNEL_ARTIFACT_RELEASE='$release'|" "$env"
+            grep -n RELEASE= "$env"
+          done
+
+      - name: Fetch accepted boot base
+        run: |
+          eval "$(. ./tools/rootfs/boot-ramdisk/accepted-aarch64.env; printf 'release=%s file=%s' "$UML_BOOT_BASE_RELEASE" "$UML_BOOT_BASE_FILE")"
+          mkdir -p ".build/rootfs/$release"
+          gh release download ci-inputs -R heyskylo/KellyLinux -p "$file" -D ".build/rootfs/$release"
+
+      - name: Restore dependency prefixes
+        id: deps
+        uses: actions/cache/restore@v4
+        with:
+          path: .build/dependencies
+          key: ios-deps-${{ hashFiles('dependencies/**') }}-xcode27
+
+      # Packaging re-verifies the sources, so they are fetched even when the
+      # built prefixes come from the cache.
+      - name: Fetch dependency sources
+        run: |
+          for product in apple-gpu-vulkan-experiment ios-network ios-storage ios-compression; do
+            dependencies/prepare.sh --product "$product"
+          done
+
+      - name: Build dependency prefixes
+        if: steps.deps.outputs.cache-hit != 'true'
+        run: |
+          jobs=$(sysctl -n hw.logicalcpu)
+          dependencies/build-apple-gpu.sh --platform ios --jobs "$jobs" \
+            --prefix .build/dependencies/apple-gpu-vulkan-experiment/ios-device-arm64
+          dependencies/build-ios-network.sh --platform ios --jobs "$jobs"
+
+      # Saved at once, so a later failing step does not discard an hour of build.
+      - name: Save dependency prefixes
+        if: steps.deps.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: .build/dependencies
+          key: ${{ steps.deps.outputs.cache-primary-key }}
+
+      - name: Restore compiler cache
+        uses: actions/cache@v4
+        with:
+          path: .build/ccache-runtime
+          key: ccache-runtime-${{ github.run_id }}
+          restore-keys: ccache-runtime-
+
+      - name: Build runtimes
+        run: |
+          for preset in linuxed-ios-device; do
+            cmake --preset "$preset" -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+            cmake --build --preset "$preset"
+          done
+          ccache -s
+
+      - name: Package frameworks
+        run: Linuxed/scripts/package-ios-frameworks.sh --sdk device
+
+      - name: Build unsigned ${{ inputs.scheme }} app
+        env:
+          SCHEME: ${{ inputs.scheme }}
+        run: |
+          xcodebuild -project Linuxed/Linuxed.xcodeproj -scheme "$SCHEME" \
+            -configuration Release -destination generic/platform=iOS \
+            -derivedDataPath .build/ci-derived-data \
+            CODE_SIGNING_ALLOWED=NO build
+          mkdir -p .build/ipa/Payload
+          cp -R ".build/ci-derived-data/Build/Products/Release-iphoneos/$SCHEME.app" .build/ipa/Payload/
+          (cd .build/ipa && zip -qry "$SCHEME-unsigned.ipa" Payload)
+
+      # The .ipa itself, under its commit and as the latest one.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.scheme }}-unsigned-ipa
+          path: .build/ipa/${{ inputs.scheme }}-unsigned.ipa
+          if-no-files-found: error
+

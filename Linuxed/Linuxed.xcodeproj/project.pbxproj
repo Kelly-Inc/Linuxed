@@ -17,6 +17,13 @@
 		B20000000000000000000001 /* GhosttyTerminal in Frameworks */ = {isa = PBXBuildFile; productRef = B20000000000000000000003 /* GhosttyTerminal */; };
 		B20000000000000000000011 /* GuestHostCore in Frameworks */ = {isa = PBXBuildFile; productRef = B20000000000000000000013 /* GuestHostCore */; };
 		B20000000000000000000014 /* GuestHostCore in Frameworks */ = {isa = PBXBuildFile; productRef = B20000000000000000000015 /* GuestHostCore */; };
+		E50000000000000000000010 /* GPTFDisk.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = A10000000000000000000016 /* GPTFDisk.xcframework */; };
+		E50000000000000000000011 /* LibZstd.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = A10000000000000000000017 /* LibZstd.xcframework */; };
+		E50000000000000000000012 /* GhosttyTerminal in Frameworks */ = {isa = PBXBuildFile; productRef = E50000000000000000000020 /* GhosttyTerminal */; };
+		E50000000000000000000013 /* GuestHostCore in Frameworks */ = {isa = PBXBuildFile; productRef = E50000000000000000000021 /* GuestHostCore */; };
+		E50000000000000000000014 /* KRuntime_6_18_4K.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = A10000000000000000000014 /* KRuntime_6_18_4K.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		E50000000000000000000015 /* MesaEGL.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = A10000000000000000000012 /* MesaEGL.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		E50000000000000000000016 /* MesaGallium.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = A10000000000000000000013 /* MesaGallium.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -50,6 +57,19 @@
 			name = "Embed Frameworks";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		E50000000000000000000006 /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+				E50000000000000000000014 /* KRuntime_6_18_4K.xcframework in Embed Frameworks */,
+				E50000000000000000000015 /* MesaEGL.xcframework in Embed Frameworks */,
+				E50000000000000000000016 /* MesaGallium.xcframework in Embed Frameworks */,
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
@@ -66,6 +86,7 @@
 		A1000000000000000000001B /* HostVideoEncoder.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = HostVideoEncoder.xcframework; path = "../.build/linuxed-xcframeworks/HostVideoEncoder.xcframework"; sourceTree = SOURCE_ROOT; };
 		C30000000000000000000001 /* LinuxedAutomation.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = LinuxedAutomation.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		D40000000000000000000010 /* Signing.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Signing.xcconfig; sourceTree = "<group>"; };
+		E50000000000000000000001 /* LinuxedCLI.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = LinuxedCLI.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -132,6 +153,17 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		E50000000000000000000004 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E50000000000000000000010 /* GPTFDisk.xcframework in Frameworks */,
+				E50000000000000000000011 /* LibZstd.xcframework in Frameworks */,
+				E50000000000000000000012 /* GhosttyTerminal in Frameworks */,
+				E50000000000000000000013 /* GuestHostCore in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -156,6 +188,7 @@
 				8AF5E8DE302C966400B19616 /* LinuxedTests.xctest */,
 				8AF5E8E8302C966400B19616 /* LinuxedUITests.xctest */,
 				C30000000000000000000001 /* LinuxedAutomation.xctest */,
+				E50000000000000000000001 /* LinuxedCLI.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -284,6 +317,34 @@
 			productReference = C30000000000000000000001 /* LinuxedAutomation.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
+		E50000000000000000000002 /* LinuxedCLI */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = E50000000000000000000030 /* Build configuration list for PBXNativeTarget "LinuxedCLI" */;
+			buildPhases = (
+				E50000000000000000000008 /* Check Mac run location */,
+				E50000000000000000000003 /* Sources */,
+				E50000000000000000000004 /* Frameworks */,
+				E50000000000000000000005 /* Resources */,
+				E50000000000000000000006 /* Embed Frameworks */,
+				E50000000000000000000007 /* Embed KosmicKrisp (device only) */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				8AF5E8D1302C966200B19616 /* Linuxed */,
+				D40000000000000000000001 /* GuestHost */,
+			);
+			name = LinuxedCLI;
+			packageProductDependencies = (
+				E50000000000000000000020 /* GhosttyTerminal */,
+				E50000000000000000000021 /* GuestHostCore */,
+			);
+			productName = LinuxedCLI;
+			productReference = E50000000000000000000001 /* LinuxedCLI.app */;
+			productType = "com.apple.product-type.application";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -313,6 +374,14 @@
 					C30000000000000000000006 = {
 						CreatedOnToolsVersion = 26.6;
 					};
+					E50000000000000000000002 = {
+						CreatedOnToolsVersion = 26.6;
+						SystemCapabilities = {
+							"com.apple.developer.kernel.extended-virtual-addressing" = {
+								enabled = 1;
+							};
+						};
+					};
 				};
 			};
 			buildConfigurationList = 8AF5E8CA302C966200B19616 /* Build configuration list for PBXProject "Linuxed" */;
@@ -336,6 +405,7 @@
 				8AF5E8DD302C966400B19616 /* LinuxedTests */,
 				8AF5E8E7302C966400B19616 /* LinuxedUITests */,
 				C30000000000000000000006 /* LinuxedAutomation */,
+				E50000000000000000000002 /* LinuxedCLI */,
 			);
 		};
 /* End PBXProject section */
@@ -363,6 +433,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		C30000000000000000000004 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E50000000000000000000005 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -410,6 +487,44 @@
 			shellPath = /bin/sh;
 			shellScript = "/usr/bin/env python3 -B \"$SRCROOT/../scripts/check-run-location.py\"\n";
 		};
+		E50000000000000000000007 /* Embed KosmicKrisp (device only) */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Embed KosmicKrisp (device only)";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"$SRCROOT/scripts/embed-device-framework.sh\" \"$SRCROOT/../.build/linuxed-xcframeworks/KosmicKrisp.xcframework\"\n";
+		};
+		E50000000000000000000008 /* Check Mac run location */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Check Mac run location";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "/usr/bin/env python3 -B \"$SRCROOT/../scripts/check-run-location.py\"\n";
+		};
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -435,6 +550,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		C30000000000000000000005 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E50000000000000000000003 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -847,6 +969,108 @@
 			};
 			name = Release;
 		};
+		E50000000000000000000031 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Linuxed/Linuxed.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_PREVIEWS = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SRCROOT)/../.build/linuxed-xcframeworks",
+				);
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Info.plist;
+				INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace = YES;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = NO;
+				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = NO;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
+				INFOPLIST_KEY_UIFileSharingEnabled = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphoneos*]" = YES;
+				INFOPLIST_KEY_UIStatusBarStyle = UIStatusBarStyleDefault;
+				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphoneos*]" = UIStatusBarStyleDefault;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportsDocumentBrowser = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
+				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
+				MARKETING_VERSION = 1.0;
+				INFOPLIST_KEY_CFBundleDisplayName = "Linuxed CLI";
+				INFOPLIST_KEY_UIStatusBarHidden = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = lol.respring.linuxed.cli;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) LINUXED_CLI";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "Linuxed/Linuxed-Bridging-Header.h";
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		E50000000000000000000032 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Linuxed/Linuxed.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_PREVIEWS = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SRCROOT)/../.build/linuxed-xcframeworks",
+				);
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Info.plist;
+				INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace = YES;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = NO;
+				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = NO;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
+				INFOPLIST_KEY_UIFileSharingEnabled = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphoneos*]" = YES;
+				INFOPLIST_KEY_UIStatusBarStyle = UIStatusBarStyleDefault;
+				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphoneos*]" = UIStatusBarStyleDefault;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportsDocumentBrowser = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
+				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
+				MARKETING_VERSION = 1.0;
+				INFOPLIST_KEY_CFBundleDisplayName = "Linuxed CLI";
+				INFOPLIST_KEY_UIStatusBarHidden = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = lol.respring.linuxed.cli;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) LINUXED_CLI";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "Linuxed/Linuxed-Bridging-Header.h";
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -895,6 +1119,15 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+		E50000000000000000000030 /* Build configuration list for PBXNativeTarget "LinuxedCLI" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				E50000000000000000000031 /* Debug */,
+				E50000000000000000000032 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
@@ -926,6 +1159,15 @@
 			productName = GuestHostCore;
 		};
 		B20000000000000000000015 /* GuestHostCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = GuestHostCore;
+		};
+		E50000000000000000000020 /* GhosttyTerminal */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B20000000000000000000002 /* XCRemoteSwiftPackageReference "libghostty-spm" */;
+			productName = GhosttyTerminal;
+		};
+		E50000000000000000000021 /* GuestHostCore */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = GuestHostCore;
 		};

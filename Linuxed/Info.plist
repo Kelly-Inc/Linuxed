@@ -5,6 +5,7 @@
 	<key>BGTaskSchedulerPermittedIdentifiers</key>
 	<array>
 		<string>lol.respring.linuxed.guest.*</string>
+		<string>lol.respring.linuxed.cli.guest.*</string>
 	</array>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Linuxed records from the microphone only when you turn on Microphone in Emulator settings, so that programs in the guest can use it.</string>

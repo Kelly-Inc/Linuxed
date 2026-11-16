@@ -199,7 +199,9 @@ struct ContentView: View {
                 if keepRunningChosen && launcher.phase == .running {
                     keepRunningButton
                 }
+                #if !LINUXED_CLI
                 displayModeButton
+                #endif
                 keyboardButton
                 specialKeysRow
             }
@@ -411,7 +413,12 @@ enum GuestViewMode {
     case framebuffer
     case serialConsole
 
+    #if LINUXED_CLI
+    /// Linuxed CLI shows only the console; the desktop goes to a computer.
+    static let defaultMode: Self = .serialConsole
+    #else
     static let defaultMode: Self = .framebuffer
+    #endif
 }
 
 /// How this launch's guest run ended, as the application reports it.
@@ -942,11 +949,16 @@ final class EmulatorLauncher: ObservableObject, SpaceRun {
     static func remoteDisplaySize(
         defaults: UserDefaults = .standard
     ) -> (width: UInt32, height: UInt32)? {
+        #if LINUXED_CLI
+        // Linuxed CLI's guest is always seen on a computer, over its VNC.
+        return (1920, 1080)
+        #else
         guard defaults.bool(forKey: remoteDisplayKey) else { return nil }
         let choice = defaults.string(forKey: remoteDisplaySizeKey) ?? "1920x1080"
         let parts = choice.split(separator: "x").compactMap { UInt32($0) }
         guard parts.count == 2 else { return nil }
         return (parts[0], parts[1])
+        #endif
     }
 
     var guestName: String { runningGuestIsAndroid ? "Android" : "Linux" }
@@ -986,11 +998,13 @@ final class EmulatorLauncher: ObservableObject, SpaceRun {
         runningGuestName = rootfsFilename
         runningGuestIsAndroid = selection.flavor == .android
         // The runtime serves the remote display for a run that starts with it.
-        setenv(
-            "LINUXED_REMOTE_DISPLAY",
-            UserDefaults.standard.bool(forKey: Self.remoteDisplayKey) ? "1" : "0",
-            1
-        )
+        // Linuxed CLI never does: the guest's own VNC holds port 5900.
+        #if LINUXED_CLI
+        let remoteDisplay = false
+        #else
+        let remoteDisplay = UserDefaults.standard.bool(forKey: Self.remoteDisplayKey)
+        #endif
+        setenv("LINUXED_REMOTE_DISPLAY", remoteDisplay ? "1" : "0", 1)
         guard linuxed_runtime_loader_select(
             selection.flavor.rawValue
         ) == 0 else {

@@ -32,13 +32,30 @@ struct LinuxedApp: App {
         #else
         setenv("MESA_LOADER_DRIVER_OVERRIDE", "zink", 1)
         #endif
+        #if LINUXED_CLI
+        // The guest's desktop is seen only on a computer, through the VNC
+        // server in the image on the phone's loopback port 5900 (iproxy).
+        setenv("LINUXED_HOST_FORWARD", "tcp:127.0.0.1:2222-22,tcp:127.0.0.1:5900-5900", 1)
+        if RootfsImage.selection(named: Self.cliImage) != nil {
+            setenv(RootfsImage.environmentKey, Self.cliImage, 1)
+        }
+        #endif
+        let named = ProcessInfo.processInfo.environment[RootfsImage.environmentKey] != nil
+        _booted = State(initialValue: named)
+        _splashVisible = State(initialValue: !named)
     }
+
+    #if LINUXED_CLI
+    /// The image Linuxed CLI boots once it is in Documents; until then the
+    /// menu imports one (tools/rootfs/starter, the `arch-gnome` release).
+    static let cliImage = "arch-gnome.erofs"
+    #endif
 
     /// The launcher reads the settings once, as it first starts, so the guest
     /// view is made only after the menu has saved the chosen image.
     /// A launch that names its image (automation, the hosted tests) boots at once.
-    @State private var booted = ProcessInfo.processInfo.environment[RootfsImage.environmentKey] != nil
-    @State private var splashVisible = ProcessInfo.processInfo.environment[RootfsImage.environmentKey] == nil
+    @State private var booted: Bool
+    @State private var splashVisible: Bool
     @State private var logoVisible = true
 
     var body: some Scene {
