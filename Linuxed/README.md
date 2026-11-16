@@ -165,7 +165,8 @@ not resized with it. It takes the frame mirror, so Picture in Picture
 does not start while it runs, and the App Store runtime has none of it.
 
 A Linux guest's SLiRP link forwards the device's loopback port 2222 to the
-guest's port 22, unless `LINUXED_HOST_FORWARD` names another forward. While
+guest's port 22, unless `LINUXED_HOST_FORWARD` names other forwards,
+separated by commas. While
 an external screen (AirPlay) is connected, the framebuffer moves to it, the
 guest is resized to that screen, and the phone becomes a touchpad and
 keyboard: the application draws a cursor there and sends each press as a

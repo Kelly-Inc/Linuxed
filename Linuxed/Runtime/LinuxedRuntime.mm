@@ -257,8 +257,16 @@ public:
         /* An App Store runtime reads no environment knob. */
         const char* forwarding = nullptr;
 #endif
-        if (forwarding != nullptr && forwarding[0] != '\0') {
-            const int error = uml_slirp_net_add_forward(context_, forwarding);
+        /* Several forwards are separated by commas, which no specification
+         * contains. */
+        for (std::string_view rest = forwarding != nullptr ? forwarding : "";
+             !rest.empty();) {
+            const auto comma = rest.find(',');
+            const std::string specification {rest.substr(0, comma)};
+            rest = comma == std::string_view::npos ?
+                std::string_view {} : rest.substr(comma + 1);
+            const int error =
+                uml_slirp_net_add_forward(context_, specification.c_str());
             if (error != 0) {
                 uml_slirp_net_destroy(context_);
                 context_ = nullptr;
