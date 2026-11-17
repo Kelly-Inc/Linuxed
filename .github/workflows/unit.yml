@@ -26,6 +26,17 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install build tools
-        run: brew install ninja
+        run: brew install ninja autoconf automake libtool meson pkg-config
+      - name: Restore dependency prefix
+        id: deps
+        uses: actions/cache@v4
+        with:
+          path: .build/dependencies
+          key: macos-deps-${{ hashFiles('dependencies/**') }}
+      - name: Prepare dependencies
+        run: dependencies/prepare.sh --product macos
+      - name: Build dependency prefix
+        if: steps.deps.outputs.cache-hit != 'true'
+        run: dependencies/build.sh --jobs "$(sysctl -n hw.logicalcpu)"
       - name: Run check-unit
         run: cmake --workflow --preset check-unit
