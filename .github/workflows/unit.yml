@@ -1,0 +1,31 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+#
+# Run the host unit and tooling suites (check-unit) on macOS for every branch
+# other than main, so a CPU-engine change is tested before it reaches the IPA.
+name: Unit tests
+
+on:
+  push:
+    branches-ignore: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check-unit:
+    runs-on: macos-26
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install build tools
+        run: brew install ninja
+      - name: Run check-unit
+        run: cmake --workflow --preset check-unit
