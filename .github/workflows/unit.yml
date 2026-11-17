@@ -36,8 +36,20 @@ jobs:
         with:
           path: .build/dependencies
           key: macos-deps-${{ hashFiles('dependencies/**') }}
+      - name: Restore dependency Git cache
+        uses: actions/cache@v4
+        with:
+          path: .build/dependency-cache
+          key: dependency-git-${{ hashFiles('dependencies/manifest.tsv') }}
+          restore-keys: dependency-git-
+      # Savannah answers 502 intermittently, so a failed fetch is retried.
       - name: Prepare dependencies
-        run: dependencies/prepare.sh --product macos
+        run: |
+          for attempt in 1 2 3 4 5; do
+            dependencies/prepare.sh --product macos && exit 0
+            sleep $((attempt * 30))
+          done
+          exit 1
       - name: Build dependency prefix
         if: steps.deps.outputs.cache-hit != 'true'
         run: dependencies/build.sh --jobs "$(sysctl -n hw.logicalcpu)"
