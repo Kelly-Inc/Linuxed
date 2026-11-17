@@ -26,7 +26,10 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install build tools
-        run: brew install ninja autoconf automake libtool meson pkg-config
+        run: |
+          brew install ninja make meson pkg-config rsync autoconf automake gettext libtool gperf groff
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
       - name: Restore dependency prefix
         id: deps
         uses: actions/cache@v4
