@@ -60,3 +60,6 @@ CMakeUserPresets.json
 # developer-owned migration input and must not be deleted or committed.
 /kernel/source-location.conf
 /kernel/mainline-6.18/source-location.conf
+
+# A local Trolldroid icon (trolldroid/README.md).
+/trolldroid/icon/AppIcon.local.png

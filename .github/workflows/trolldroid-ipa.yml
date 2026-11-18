@@ -1,0 +1,169 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+#
+# Build the unsigned Trolldroid .ipa: Kernarium's Android application at the
+# commit trolldroid/upstream.env pins, changed by trolldroid/apply.py, with the
+# prebuilt Android kernel and LineageOS release that commit accepts. Xcode
+# comes from the runner or the R2 archive that linuxed-ipa.yml keeps.
+name: Build Trolldroid IPA
+
+on:
+  push:
+    branches: [main]
+    paths: [trolldroid/**, .github/workflows/trolldroid-ipa.yml]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+  R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+  R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+  R2_BUCKET: ${{ secrets.R2_BUCKET }}
+
+jobs:
+  ipa:
+    runs-on: macos-26
+    timeout-minutes: 300
+    env:
+      GH_TOKEN: ${{ github.token }}
+      XCODE_VERSION: "27.2"
+      CCACHE_DIR: ${{ github.workspace }}/.build/ccache-trolldroid
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read the pin
+        id: pin
+        run: |
+          . trolldroid/upstream.env
+          for name in KERNARIUM_REPOSITORY KERNARIUM_COMMIT RELEASE_TAG KERNEL_ASSET KERNEL_SHA256 SYSTEM_ASSET SYSTEM_SHA256; do
+            eval "printf '%s=%s\n' $name \"\$$name\"" >> "$GITHUB_OUTPUT"
+          done
+
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ steps.pin.outputs.KERNARIUM_REPOSITORY }}
+          ref: ${{ steps.pin.outputs.KERNARIUM_COMMIT }}
+          path: kernarium
+
+      - name: Select Xcode 27
+        run: |
+          app=$(ls -d /Applications/Xcode_27*.app 2>/dev/null | sort -V | tail -1)
+          if [ -z "$app" ]; then
+            .github/scripts/r2.sh has "cache/xcode/Xcode-$XCODE_VERSION.tar.zst" ||
+              { echo "no Xcode $XCODE_VERSION in R2: run Build Linuxed IPA once first"; exit 1; }
+            .github/scripts/r2.sh get "cache/xcode/Xcode-$XCODE_VERSION.tar.zst" "$RUNNER_TEMP/Xcode.tar.zst"
+            sudo rm -rf /Applications/Xcode_26.[0-5]*.app
+            zstd -dc "$RUNNER_TEMP/Xcode.tar.zst" | sudo tar -xpf - -C /Applications
+            rm -f "$RUNNER_TEMP/Xcode.tar.zst"
+            app=$(ls -d /Applications/Xcode-"$XCODE_VERSION"*.app | tail -1)
+          fi
+          sudo xcode-select -s "$app"
+          sudo xcodebuild -license accept
+          sudo xcodebuild -runFirstLaunch
+          xcodebuild -version | grep -q '^Xcode 27' || { xcodebuild -version; exit 1; }
+          xcodebuild -downloadPlatform iOS
+          xcodebuild -downloadComponent MetalToolchain
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install build tools
+        run: |
+          brew install autoconf automake bison ccache flex gettext gperf groff libtool make meson ninja pkg-config rsync zstd
+          echo "$(brew --prefix bison)/bin" >> "$GITHUB_PATH"
+          echo "$(brew --prefix flex)/bin" >> "$GITHUB_PATH"
+          python -m venv kernarium/.build/gpu-tools-venv
+          kernarium/.build/gpu-tools-venv/bin/pip install meson mako pyyaml packaging
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Fetch the accepted Android kernel and system
+        env:
+          REPO: ${{ steps.pin.outputs.KERNARIUM_REPOSITORY }}
+          TAG: ${{ steps.pin.outputs.RELEASE_TAG }}
+          KERNEL_ASSET: ${{ steps.pin.outputs.KERNEL_ASSET }}
+          KERNEL_SHA256: ${{ steps.pin.outputs.KERNEL_SHA256 }}
+          SYSTEM_ASSET: ${{ steps.pin.outputs.SYSTEM_ASSET }}
+          SYSTEM_SHA256: ${{ steps.pin.outputs.SYSTEM_SHA256 }}
+        run: |
+          d=$RUNNER_TEMP/assets
+          mkdir -p "$d/system"
+          gh release download "$TAG" -R "$REPO" -p "$KERNEL_ASSET" -p "$SYSTEM_ASSET" -D "$d"
+          (cd "$d" && printf '%s  %s\n%s  %s\n' "$KERNEL_SHA256" "$KERNEL_ASSET" "$SYSTEM_SHA256" "$SYSTEM_ASSET" | shasum -a 256 -c -)
+          mkdir -p kernarium/.build/kernel/artifacts
+          tar -xzf "$d/$KERNEL_ASSET" -C kernarium/.build/kernel/artifacts
+          tar -xzf "$d/$SYSTEM_ASSET" -C "$d/system"
+          rm -f "$d/$KERNEL_ASSET" "$d/$SYSTEM_ASSET"
+          release=$(ls -d "$d"/system/lineage24-* | head -1)
+          cd kernarium
+          python3 android/lineage-24/tools/install-release.py --source "$release"
+          rm -rf "$d/system"
+
+      - name: Restore dependency prefixes
+        id: deps
+        uses: actions/cache/restore@v4
+        with:
+          path: kernarium/.build/dependencies
+          key: trolldroid-deps-${{ steps.pin.outputs.KERNARIUM_COMMIT }}-xcode27
+
+      - name: Fetch dependency sources
+        working-directory: kernarium
+        run: |
+          for product in apple-gpu-vulkan-experiment ios-network ios-storage ios-compression; do
+            dependencies/prepare.sh --product "$product"
+          done
+
+      - name: Build dependency prefixes
+        if: steps.deps.outputs.cache-hit != 'true'
+        working-directory: kernarium
+        run: |
+          jobs=$(sysctl -n hw.logicalcpu)
+          dependencies/build-apple-gpu.sh --platform ios --jobs "$jobs" \
+            --prefix .build/dependencies/apple-gpu-vulkan-experiment/ios-device-arm64
+          dependencies/build-ios-network.sh --platform ios --jobs "$jobs"
+
+      - name: Save dependency prefixes
+        if: steps.deps.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: kernarium/.build/dependencies
+          key: ${{ steps.deps.outputs.cache-primary-key }}
+
+      - name: Restore compiler cache
+        uses: actions/cache@v4
+        with:
+          path: .build/ccache-trolldroid
+          key: ccache-trolldroid-${{ github.run_id }}
+          restore-keys: ccache-trolldroid-
+
+      - name: Build and package the Android runtime
+        working-directory: kernarium
+        run: |
+          cmake --preset kernarium-ios-device-android -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+          cmake --build --preset kernarium-ios-device-android
+          Kernarium/scripts/package-ios-frameworks.sh --sdk device --runtimes android
+          Andarium/scripts/stage-system-image.py
+          ccache -s
+
+      - name: Build unsigned Trolldroid
+        run: |
+          python3 -I trolldroid/apply.py --kernarium kernarium
+          xcodebuild -project kernarium/Andarium/Andarium.xcodeproj -scheme Andarium \
+            -configuration Release -destination generic/platform=iOS \
+            -derivedDataPath .build/trolldroid-derived-data \
+            CODE_SIGNING_ALLOWED=NO build
+          mkdir -p .build/ipa/Payload
+          cp -R .build/trolldroid-derived-data/Build/Products/Release-iphoneos/Andarium.app .build/ipa/Payload/
+          (cd .build/ipa && zip -qry Trolldroid-unsigned.ipa Payload)
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Trolldroid-unsigned-ipa
+          path: .build/ipa/Trolldroid-unsigned.ipa
+          if-no-files-found: error
