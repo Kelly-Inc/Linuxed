@@ -50,6 +50,9 @@ jobs:
           ref: ${{ steps.pin.outputs.KERNARIUM_COMMIT }}
           path: kernarium
 
+      - name: Turn the checkout into Trolldroid
+        run: python3 -I trolldroid/apply.py --kernarium kernarium
+
       - name: Select Xcode 27
         run: |
           app=$(ls -d /Applications/Xcode_27*.app 2>/dev/null | sort -V | tail -1)
@@ -153,7 +156,6 @@ jobs:
 
       - name: Build unsigned Trolldroid
         run: |
-          python3 -I trolldroid/apply.py --kernarium kernarium
           xcodebuild -project kernarium/Andarium/Andarium.xcodeproj -scheme Andarium \
             -configuration Release -destination generic/platform=iOS \
             -derivedDataPath .build/trolldroid-derived-data \

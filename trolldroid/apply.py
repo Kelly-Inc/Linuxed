@@ -37,6 +37,18 @@ def main() -> int:
     if not (app / "Andarium.xcodeproj/project.xcproj").is_file():
         fail(f"{root} is not a Kernarium checkout")
 
+    # Mesa's PATH is sealed, so a Homebrew Bison 3 must reach it through the
+    # shim directory too, or Mesa runs the system's Bison 2 on its grammars.
+    gpu = root / "dependencies/build-apple-gpu.sh"
+    replace_once(gpu,
+                 'case $BISON_VERSION in\n[3-9].*|[1-9][0-9].*) ;;\n*)\n'
+                 '\tBISON_SHIM_DIR="$BUILDS/bison-shim"\n\tmkdir -p -- "$BISON_SHIM_DIR"\n',
+                 'BISON_SHIM_DIR="$BUILDS/bison-shim"\nmkdir -p -- "$BISON_SHIM_DIR"\n'
+                 'case $BISON_VERSION in\n[3-9].*|[1-9][0-9].*)\n\tln -sf -- "$BISON" "$BISON_SHIM_DIR/bison"\n\t;;\n*)\n')
+    replace_once(gpu,
+                 '\tMESA_GL_TOOL_PATH="$BISON_SHIM_DIR:$MESA_TOOL_PATH"\n\t;;\nesac\n',
+                 '\t;;\nesac\nMESA_GL_TOOL_PATH="$BISON_SHIM_DIR:$MESA_TOOL_PATH"\n')
+
     # Name, bundle and icon; the device and preview applications share the
     # name and the icon.
     project = app / "Andarium.xcodeproj/project.xcproj"
