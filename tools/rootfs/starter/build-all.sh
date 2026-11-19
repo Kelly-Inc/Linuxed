@@ -986,7 +986,7 @@ https://dl-cdn.alpinelinux.org/alpine/edge/community
 EOF
 		as_root chroot "$root" /sbin/apk upgrade --no-cache --available
 		as_root chroot "$root" /sbin/apk add --no-cache "$@" \
-			niri greetd greetd-openrc xwayland-satellite kitty nautilus \
+			niri greetd greetd-openrc seatd seatd-openrc xwayland-satellite kitty nautilus \
 			fish qt6-qtbase qt6-qtdeclarative qt6-qtwayland qt6-qtsvg \
 			qt6-qtimageformats qt6-qt5compat py3-qt6 py3-gobject3 python3 \
 			pipewire wireplumber networkmanager networkmanager-cli upower \

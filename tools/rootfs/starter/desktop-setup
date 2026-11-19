@@ -200,17 +200,20 @@ niri)
 			>> "$niri/autostart.kdl"
 	done
 	chown -R user:user "$user_home/.config"
+	# greetd's session has no elogind seat, so niri takes its seat from seatd.
+	usermod -a -G seat user
+	rc-update add seatd default
 	install -d -m 0755 /etc/greetd
 	cat > /etc/greetd/config.toml <<'CONFIG'
 [terminal]
 vt = "next"
 
 [default_session]
-command = "dbus-run-session niri --session"
+command = "env LIBSEAT_BACKEND=seatd dbus-run-session niri --session"
 user = "user"
 
 [initial_session]
-command = "dbus-run-session niri --session"
+command = "env LIBSEAT_BACKEND=seatd dbus-run-session niri --session"
 user = "user"
 CONFIG
 	display_manager=greetd
