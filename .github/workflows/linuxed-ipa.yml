@@ -162,6 +162,8 @@ jobs:
             release: alpine-gnome
           - product: arch-pond
             release: arch-pond
+          - product: alpine-pond
+            release: alpine-pond
     permissions:
       contents: write
     uses: ./.github/workflows/boot-base.yml

@@ -40,6 +40,14 @@ pond-system-optimizations-1_1.4.1-3-any.pkg.tar.zst:d6bf41496174f9b8061571f2b4c3
 fish-autopair-1.0.4-3-any.pkg.tar.zst:61c894cdddb6f8e49d0bb712a9a29beebd62776c2dd1ad45b9fca0153e89e04d
 fish-pure-prompt-4.19.2-1-any.pkg.tar.zst:4e1f45ccec4d3a6ba146acb65e2c762299a76e7b2dfe4cf3b5b68c3a19e7e19c
 ananicy-rules-1_1.1.49-1-any.pkg.tar.zst:65d79d2946e14e00bb2b1c22bcabe0942aca23d24a74776677b20b2421ba530c"
+# alpine-pond takes Pond's architecture-independent shell and wallpaper, and
+# builds Quickshell, which Alpine does not package, with the CLI11 it needs.
+POND_SHELL_PACKAGES="pond-shell-0.2.0-1-any.pkg.tar.zst:41955399bb31865b7a4dc5bc1ec0f00f0123807c7949cf9c8f0e482e9137f73b
+pond-wallpaper-0.2.0-1-any.pkg.tar.zst:e8caa0511310fa9d2aa57d0df54f7dc341e9e842dc0d9bfccefe8397621ffeaa"
+QUICKSHELL_VERSION=0.3.2
+QUICKSHELL_SHA256=946a27e2a276917a03c1079e5c60971af84ece73088c3661dee455d92eb420f7
+CLI11_VERSION=2.5.0
+CLI11_SHA256=17e02b4cddc2fa348e5dbdbb582c59a3486fa2b2433e70a0c3bacb871334fd55
 DEBIAN_SUITE=trixie
 DEBIAN_MIRROR=http://deb.debian.org/debian
 # The armhf twin of debian-13-minimal installs the same package list through
@@ -50,7 +58,7 @@ DEBIAN_MIRROR=http://deb.debian.org/debian
 # provides. --exclude cannot drop it, because the dependency pulls it back.
 ARMHF_INCLUDE=systemd-sysv,systemd-resolved,udev,kmod,dbus,ca-certificates,libbpf1
 DEFAULT_PRODUCTS="boot-base-aarch64 boot-base-x86_64 alpine debian-13-minimal debian-13-plasma-wayland"
-KNOWN_PRODUCTS="$DEFAULT_PRODUCTS debian-13-minimal-armhf debian-13-xfce debian-13-phosh debian-13-plasma-mobile debian-13-ztmetro arch-gnome alpine-gnome arch-pond"
+KNOWN_PRODUCTS="$DEFAULT_PRODUCTS debian-13-minimal-armhf debian-13-xfce debian-13-phosh debian-13-plasma-mobile debian-13-ztmetro arch-gnome alpine-gnome arch-pond alpine-pond"
 
 fail()
 {
@@ -73,11 +81,11 @@ release holds every product but the armhf and desktop EROFS ones:
   boot-base-aarch64 boot-base-x86_64 alpine debian-13-minimal
   debian-13-plasma-wayland debian-13-minimal-armhf debian-13-xfce
   debian-13-phosh debian-13-plasma-mobile debian-13-ztmetro arch-gnome
-  alpine-gnome arch-pond
+  alpine-gnome arch-pond alpine-pond
 
 debian-13-xfce, debian-13-phosh, debian-13-plasma-mobile, debian-13-ztmetro,
-arch-gnome, alpine-gnome and arch-pond are bare EROFS images for Linuxed; they
-need mkfs.erofs.
+arch-gnome, alpine-gnome, arch-pond and alpine-pond are bare EROFS images for
+Linuxed; they need mkfs.erofs, and alpine-pond also zstd.
 
 debian-13-minimal-armhf runs ARM programs under qemu-arm (Debian's qemu-user)
 in private namespaces.
@@ -152,8 +160,12 @@ if wants debian-13-minimal-armhf; then
 fi
 if wants debian-13-xfce || wants debian-13-phosh || \
 	wants debian-13-plasma-mobile || wants debian-13-ztmetro || \
-	wants arch-gnome || wants alpine-gnome || wants arch-pond; then
+	wants arch-gnome || wants alpine-gnome || wants arch-pond || \
+	wants alpine-pond; then
 	producer_require_host aarch64 mkfs.erofs
+fi
+if wants alpine-pond; then
+	producer_require_host aarch64 zstd
 fi
 
 requested_output_dir=$output_dir
@@ -937,37 +949,114 @@ build_arch_desktop()
 	publish_erofs "$product" "$root" "$work_dir/$product.packages.tsv"
 }
 
-# Alpine with GNOME on OpenRC, from the same minimal root as the alpine disk.
+# Alpine on OpenRC, from the same minimal root as the alpine disk ($1: gnome,
+# or pond for niri with Pond's Quickshell desktop).
 build_alpine_desktop()
 {
-	printf '%s\n' "==> Building Alpine $ALPINE_VERSION GNOME EROFS image"
+	variant=$1
+	product=alpine-$variant
+	printf '%s\n' "==> Building Alpine $ALPINE_VERSION $variant EROFS image"
 	archive=$sources_dir/alpine-minirootfs-$ALPINE_VERSION-aarch64.tar.gz
 	download_checked \
 		"https://dl-cdn.alpinelinux.org/alpine/v3.24/releases/aarch64/$(basename "$archive")" \
 		"$ALPINE_SHA256" "$archive"
-	root=$roots_dir/alpine-gnome
+	root=$roots_dir/$product
 	reset_root_directory "$root"
 	as_root tar --numeric-owner -C "$root" -xzf "$archive"
 	mount_chroot_proc "$root"
 	mount_chroot_dev "$root"
 	configure_alpine "$root"
-	# GNOME needs udev, so eudev replaces the minimal image's mdevd.
+	# The desktops need udev, so eudev replaces the minimal image's mdevd.
 	as_root chroot "$root" /sbin/rc-update del mdevd sysinit
 	as_root chroot "$root" /sbin/rc-update del mdevd-init sysinit
-	as_root chroot "$root" /sbin/apk add --no-cache \
-		gnome-shell gnome-session gdm gdm-openrc gnome-console nautilus \
-		gnome-control-center xwayland eudev eudev-openrc udev-init-scripts \
-		udev-init-scripts-openrc dbus dbus-openrc elogind elogind-openrc \
-		polkit-elogind mesa-dri-gallium mesa-egl mesa-utils font-dejavu \
-		adwaita-icon-theme shadow sudo bash openssh iputils netsurf \
-		fastfetch nano htop curl wget zsh
+	set -- eudev eudev-openrc udev-init-scripts udev-init-scripts-openrc \
+		dbus dbus-openrc elogind elogind-openrc polkit-elogind \
+		mesa-dri-gallium mesa-egl mesa-utils font-dejavu adwaita-icon-theme \
+		shadow sudo bash openssh iputils netsurf fastfetch nano htop curl \
+		wget zsh
+	if [ "$variant" = gnome ]; then
+		as_root chroot "$root" /sbin/apk add --no-cache "$@" \
+			gnome-shell gnome-session gdm gdm-openrc gnome-console nautilus \
+			gnome-control-center xwayland
+	else
+		# Pond's niri configuration needs niri 26.04, which only edge has.
+		write_root_file "$root/etc/apk/repositories" 0644 <<'EOF'
+https://dl-cdn.alpinelinux.org/alpine/edge/main
+https://dl-cdn.alpinelinux.org/alpine/edge/community
+EOF
+		as_root chroot "$root" /sbin/apk upgrade --no-cache --available
+		as_root chroot "$root" /sbin/apk add --no-cache "$@" \
+			niri greetd greetd-openrc xwayland-satellite kitty nautilus \
+			fish qt6-qtbase qt6-qtdeclarative qt6-qtwayland qt6-qtsvg \
+			qt6-qtimageformats qt6-qt5compat py3-qt6 py3-gobject3 python3 \
+			pipewire wireplumber networkmanager networkmanager-cli upower \
+			power-profiles-daemon bluez brightnessctl libcanberra \
+			gsettings-desktop-schemas imagemagick capitaine-cursors \
+			font-jetbrains-mono font-ibm-plex-mono-nerd wl-clipboard zenity \
+			jemalloc polkit linux-pam
+		build_quickshell "$root"
+		for entry in $POND_SHELL_PACKAGES; do
+			file=${entry%%:*}
+			download_checked "$POND_URL/$file" "${entry#*:}" "$sources_dir/$file"
+			as_root tar --zstd --numeric-owner -C "$root" -xf \
+				"$sources_dir/$file" --exclude=.BUILDINFO --exclude=.MTREE \
+				--exclude=.PKGINFO --exclude=.INSTALL
+		done
+	fi
 	printf '%s\n' linuxed | write_root_file "$root/etc/hostname" 0644
-	run_desktop_setup "$root" gnome
+	case "$variant" in gnome) session=gnome ;; *) session=niri ;; esac
+	run_desktop_setup "$root" "$session"
+	if [ "$variant" = pond ]; then
+		as_root chroot "$root" usermod -s /usr/bin/fish user
+	fi
 	as_root chroot "$root" /sbin/apk info -v | sort \
-		> "$work_dir/alpine-gnome.packages.tsv"
+		> "$work_dir/$product.packages.tsv"
+	if [ "$variant" = pond ]; then
+		printf 'quickshell-%s\tsource\n' "$QUICKSHELL_VERSION" \
+			>> "$work_dir/$product.packages.tsv"
+	fi
 	unmount_chroot_proc
 	as_root rm -rf -- "$root/var/cache/apk"/*
-	publish_erofs alpine-gnome "$root" "$work_dir/alpine-gnome.packages.tsv"
+	publish_erofs "$product" "$root" "$work_dir/$product.packages.tsv"
+}
+
+# Builds Quickshell into the Alpine root $1 against the Qt it ships, with the
+# build tools installed only for the build. The crash handler needs cpptrace,
+# which Alpine does not package.
+build_quickshell()
+{
+	quickshell=$sources_dir/quickshell-$QUICKSHELL_VERSION.tar.gz
+	cli11=$sources_dir/cli11-$CLI11_VERSION.tar.gz
+	download_checked \
+		"https://github.com/quickshell-mirror/quickshell/archive/refs/tags/v$QUICKSHELL_VERSION.tar.gz" \
+		"$QUICKSHELL_SHA256" "$quickshell"
+	download_checked \
+		"https://github.com/CLIUtils/CLI11/archive/refs/tags/v$CLI11_VERSION.tar.gz" \
+		"$CLI11_SHA256" "$cli11"
+	as_root install -d -m 0755 "$1/tmp/qs"
+	as_root tar -C "$1/tmp/qs" -xzf "$quickshell"
+	as_root tar -C "$1/tmp/qs" -xzf "$cli11"
+	as_root chroot "$1" /sbin/apk add --no-cache --virtual .quickshell-build \
+		build-base cmake samurai pkgconf qt6-qtbase-dev \
+		qt6-qtdeclarative-dev qt6-qtwayland-dev qt6-qtsvg-dev \
+		qt6-qtshadertools-dev wayland-dev wayland-protocols libdrm-dev \
+		mesa-dev pipewire-dev linux-pam-dev polkit-dev glib-dev \
+		libxcb-dev jemalloc-dev spirv-tools vulkan-headers
+	as_root chroot "$1" /bin/sh -euc "
+		cd /tmp/qs
+		cmake -S CLI11-$CLI11_VERSION -B cli11-build -G Ninja \
+			-DCMAKE_INSTALL_PREFIX=/tmp/qs/cli11 -DCLI11_BUILD_TESTS=OFF \
+			-DCLI11_BUILD_EXAMPLES=OFF -DCLI11_BUILD_DOCS=OFF
+		cmake --install cli11-build
+		cmake -S quickshell-$QUICKSHELL_VERSION -B build -G Ninja \
+			-DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr \
+			-DCMAKE_PREFIX_PATH=/tmp/qs/cli11 -DDISTRIBUTOR=Linuxed \
+			-DCRASH_HANDLER=OFF -DHYPRLAND=OFF -DI3=OFF
+		cmake --build build -j $jobs
+		cmake --install build
+		qs --version"
+	as_root chroot "$1" /sbin/apk del --no-cache .quickshell-build
+	as_root rm -rf -- "$1/tmp/qs"
 }
 
 # The armhf twin of debian-13-minimal. debootstrap's first stage only
@@ -1059,7 +1148,10 @@ if wants arch-pond; then
 	build_arch_desktop pond
 fi
 if wants alpine-gnome; then
-	build_alpine_desktop
+	build_alpine_desktop gnome
+fi
+if wants alpine-pond; then
+	build_alpine_desktop pond
 fi
 if wants debian-13-minimal; then
 	build_debian_minimal
@@ -1092,7 +1184,7 @@ fi
 if wants arch-gnome || wants arch-pond; then
 	set -- "$@" --arch-sha256 "$(cat "$work_dir/arch.sha256")"
 fi
-if wants alpine || wants alpine-gnome; then
+if wants alpine || wants alpine-gnome || wants alpine-pond; then
 	set -- "$@" --alpine-version "$ALPINE_VERSION" \
 		--alpine-sha256 "$ALPINE_SHA256"
 fi

@@ -12,7 +12,7 @@ fail()
 	echo "desktop-$session setup: $*" >&2
 	exit 1
 }
-case "$session" in xfce|phosh|plasma-mobile|ztmetro|gnome) ;; *) fail "unknown session" ;; esac
+case "$session" in xfce|phosh|plasma-mobile|ztmetro|gnome|niri) ;; *) fail "unknown session" ;; esac
 # Alpine boots OpenRC; the Debian and Arch images boot systemd.
 openrc=false
 command -v systemctl >/dev/null || openrc=true
@@ -180,6 +180,37 @@ user = "user"
 
 [initial_session]
 command = "/usr/local/bin/ztmetro-session"
+user = "user"
+CONFIG
+	display_manager=greetd
+	;;
+niri)
+	# greetd starts niri as user, and niri starts Pond's Quickshell desktop.
+	[ -x /usr/bin/niri ] || fail "the image has no niri"
+	[ -d /etc/xdg/quickshell/pond-shell ] || fail "the image has no Pond shell"
+	user_home=$(getent passwd user | cut -d: -f6)
+	for home in /etc/skel "$user_home"; do
+		niri=$home/.config/niri/cfg
+		[ -f "$niri/misc.kdl" ] || fail "the image has no Pond niri settings"
+		# Pond hides titlebars; this image keeps the ones clients draw.
+		sed -i -e '/^prefer-no-csd$/d' \
+			-e '/QT_WAYLAND_DISABLE_WINDOWDECORATION/d' "$niri/misc.kdl"
+		# OpenRC runs no user services, so the session starts PipeWire.
+		printf '%s\n' 'spawn-sh-at-startup "/usr/libexec/pipewire-launcher"' \
+			>> "$niri/autostart.kdl"
+	done
+	chown -R user:user "$user_home/.config"
+	install -d -m 0755 /etc/greetd
+	cat > /etc/greetd/config.toml <<'CONFIG'
+[terminal]
+vt = "next"
+
+[default_session]
+command = "dbus-run-session niri --session"
+user = "user"
+
+[initial_session]
+command = "dbus-run-session niri --session"
 user = "user"
 CONFIG
 	display_manager=greetd

@@ -113,12 +113,14 @@ class ManifestTests(unittest.TestCase):
         self.assertIn("package_inventory", entry)
 
     def test_the_arch_and_alpine_desktops_record_their_sources(self) -> None:
-        names = ["alpine-gnome.erofs", "arch-gnome.erofs", "arch-pond.erofs"]
+        names = ["alpine-gnome.erofs", "alpine-pond.erofs", "arch-gnome.erofs",
+                 "arch-pond.erofs"]
         for name in names:
             (self.output / name).write_bytes(b"erofs")
             (self.output / f"{name}.packages.tsv").write_text("pkg\t1\n")
         self.manifest("--product", "arch-gnome", "--product", "arch-pond",
-                      "--product", "alpine-gnome", "--arch-sha256", "a",
+                      "--product", "alpine-gnome", "--product", "alpine-pond",
+                      "--arch-sha256", "a",
                       "--alpine-version", "3.24.2", "--alpine-sha256", "c")
         manifest = self.load_manifest()
         self.assertEqual(sorted(manifest["artifacts"]), names)

@@ -32,7 +32,7 @@ DEBIAN_IMAGES = {
     "debian-13-ztmetro": "debian-13-ztmetro.erofs",
 }
 # Desktop EROFS images of other distributions, each named by its product.
-OTHER_IMAGES = ("arch-gnome", "arch-pond", "alpine-gnome")
+OTHER_IMAGES = ("arch-gnome", "arch-pond", "alpine-gnome", "alpine-pond")
 PRODUCTS = ("boot-base-aarch64", "boot-base-x86_64", "alpine",
             *DEBIAN_IMAGES, *OTHER_IMAGES)
 # What each row of the armhf image's package inventory records.
@@ -107,7 +107,7 @@ def main() -> int:
                                 "sha256": arguments.buildroot_sha256}
         sources["busybox"] = {"version": arguments.busybox_version,
                               "sha256": arguments.busybox_sha256}
-    if "alpine" in products or "alpine-gnome" in products:
+    if {"alpine", "alpine-gnome", "alpine-pond"} & set(products):
         require("alpine_version", "alpine_sha256")
         sources["alpine"] = {"version": arguments.alpine_version,
                              "sha256": arguments.alpine_sha256}

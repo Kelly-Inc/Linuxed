@@ -35,7 +35,13 @@ whose digest the manifest records; Alpine on OpenRC with eudev in place of
 mdevd; and Arch with Pond's architecture-independent configuration packages
 (`pond-fish-config`, `pond-system-optimizations`), pinned by digest, and fish
 as `user`'s shell. Pond's desktop shell has no arm64 build, and its
-`ananicy-cpp` dependency is assumed rather than installed. The Arch images
+`ananicy-cpp` dependency is assumed rather than installed. `alpine-pond` is
+Alpine edge, whose niri is the release Pond's configuration needs, with
+greetd starting niri as `user` and niri starting Pond's architecture-independent
+Quickshell desktop and wallpaper (`pond-shell`, `pond-wallpaper`), pinned by
+digest, on a Quickshell built from a pinned release. Pond's lock screen,
+screenshot tool and launcher have no arm64 build, so their bindings do
+nothing. Clients keep the titlebars they draw, and fish is `user`'s shell. The Arch images
 start GNOME Remote Desktop's VNC server in `user`'s session on port 5900,
 password `linuxed`, which an unencrypted login keyring holds; Linuxed CLI
 forwards that port to the phone's loopback.
